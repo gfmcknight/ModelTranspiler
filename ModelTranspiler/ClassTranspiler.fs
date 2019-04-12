@@ -20,11 +20,22 @@ let convertProperty (propertyDeclaration: PropertyDeclarationSyntax) =
                            (Seq.cast<SyntaxNode> (propertyDeclaration.DescendantNodes())))
 
 
+    let convertSimpleGetter (accessor: AccessorDeclarationSyntax) = 
+            sprintf "get %s() : %s\n{\nreturn this._%s;\n}\n" propertyName propertyType propertyName
+    in
+
+    let convertSimpleSetter (accessor: AccessorDeclarationSyntax) =
+            sprintf "set %s(new%s : %s)\n{\nthis._%s = new%s;\n}\n"
+                propertyName propertyName propertyType propertyName propertyName
+    in
+
+     
     let convertAccessor (accessor: AccessorDeclarationSyntax) =
         match (accessor.ToString()) with
-            | "get;" -> sprintf "get %s() : %s\n{\nreturn this._%s;\n}\n" propertyName propertyType propertyName
-            | "set;" -> sprintf "set %s(new%s : %s)\n{\nthis._%s = new%s;\n}\n"
-                                propertyName propertyName propertyType propertyName propertyName
+            | "get;" -> convertSimpleGetter accessor
+            | "public get;" -> convertSimpleGetter accessor
+            | "set;" -> convertSimpleSetter accessor
+            | "public set;" -> convertSimpleSetter accessor
             | _ -> ""
     in
     Seq.fold (+) fieldDecl (Seq.map convertAccessor accessors)

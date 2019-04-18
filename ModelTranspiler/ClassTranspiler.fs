@@ -39,15 +39,20 @@ let convertProperty (propertyDeclaration: PropertyDeclarationSyntax) =
             | _ -> ""
     in
     Seq.fold (+) fieldDecl (Seq.map convertAccessor accessors)
-   
 
-    
+let createConstructor (properties: seq<PropertyDeclarationSyntax>) =
+    let propertySetters = Seq.map (fun (prop: PropertyDeclarationSyntax) ->
+                                        let identifier =  (prop.Identifier.ToString()) in
+                                        "if (jsonData." + identifier + ") {\n" +
+                                        "this._" + identifier + " = " + identifier + ";\n}\n") properties
+    in "constructor (jsonData) {\n" + (Seq.fold (+) "" propertySetters) + "}\n"
 
 let convertClass (classDeclaration : ClassDeclarationSyntax) = 
     let properties = Seq.cast<PropertyDeclarationSyntax> (
                          Seq.filter (fun i -> TypeExtensions.IsInstanceOfType(typeof<PropertyDeclarationSyntax>, i))
                              (Seq.cast<SyntaxNode> (classDeclaration.DescendantNodes())))
     in
-    let convertedProperties = Seq.fold (+) "" (Seq.map (fun prop -> (convertProperty prop) + "\n") properties)
-    in
-    "class " + classDeclaration.Identifier.ToString() + " {\n" + convertedProperties + "}"
+    let constructor = createConstructor properties in
+    let convertedProperties = Seq.fold (+) "" (Seq.map (fun prop -> (convertProperty prop) + "\n") properties) in
+    "class " + classDeclaration.Identifier.ToString() + " {\n" + constructor + convertedProperties + "}"
+

@@ -39,5 +39,3 @@ let myClassesAsClasses = Seq.cast<ClassDeclarationSyntax> myClasses
 printf "%s" (convertClass (Seq.head myClassesAsClasses))
 for i in root.DescendantNodesAndSelf() do
     printf "\n\n%s ###::: %s\n" (i.GetType().Name) (i.ToString())
-
-let line = Console.ReadLine()

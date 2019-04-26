@@ -12,5 +12,8 @@
   "dependencies": {
     "jest": "^24.7.1",
     "jest-editor-support": "^25.0.1"
+  },
+  "scripts": {
+    "test": "jest"
   }
 }

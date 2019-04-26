@@ -5,7 +5,7 @@ open System.Reflection
 open Microsoft.CodeAnalysis.CSharp.Syntax
 open ClassTranspiler
 
-let programText = @"using System;
+let defaultProgramText = @"using System;
 using System.Collections.Generic;
 using System.Text;
  
@@ -22,20 +22,30 @@ namespace HelloWorld
     }
 }"
 
-let tree = CSharpSyntaxTree.ParseText(programText)
-let root = tree.GetCompilationUnitRoot()
+[<EntryPoint>]
+let Main(args: string []) =
 
-let compilation = CSharpCompilation.Create("HelloWorld")
-                    .AddReferences(MetadataReference.CreateFromFile(typeof<string>.Assembly.Location))
-                    .AddSyntaxTrees(tree)
+    let programText = (match List.ofArray(args) with
+                        | []      -> defaultProgramText
+                        | file::_ -> (System.IO.File.ReadAllText(file)))
+    in
 
-let model = compilation.GetSemanticModel(tree, false)
-let myClasses = Seq.filter (fun i -> TypeExtensions.IsInstanceOfType(typeof<ClassDeclarationSyntax>, i))
-                           (Seq.cast<SyntaxNode> (root.DescendantNodes()))
+    let tree = CSharpSyntaxTree.ParseText(programText) in
+    let root = tree.GetCompilationUnitRoot()
 
-let myClassesAsClasses = Seq.cast<ClassDeclarationSyntax> myClasses
+    let compilation = CSharpCompilation.Create("HelloWorld")
+                        .AddReferences(MetadataReference.CreateFromFile(typeof<string>.Assembly.Location))
+                        .AddSyntaxTrees(tree) in
+
+    let model = compilation.GetSemanticModel(tree, false) in
+    let myClasses = Seq.filter (fun i -> TypeExtensions.IsInstanceOfType(typeof<ClassDeclarationSyntax>, i))
+                                (Seq.cast<SyntaxNode> (root.DescendantNodes()))
+    in
+
+    let myClassesAsClasses = Seq.cast<ClassDeclarationSyntax> myClasses in
 
 
-printf "%s" (convertClass (Seq.head myClassesAsClasses))
-for i in root.DescendantNodesAndSelf() do
-    printf "\n\n%s ###::: %s\n" (i.GetType().Name) (i.ToString())
+    printf "%s" (convertClass (Seq.head myClassesAsClasses))
+    0
+(*for i in root.DescendantNodesAndSelf() do
+    printf "\n\n%s ###::: %s\n" (i.GetType().Name) (i.ToString()) *)

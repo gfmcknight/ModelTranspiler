@@ -7,8 +7,11 @@ open Microsoft.CodeAnalysis.CSharp.Syntax
 open System.Reflection
 open System.Linq.Expressions
 
-let convertType csharpType =
-    csharpType
+let convertType csharpType = 
+    match csharpType with
+    | "double" -> "number"
+    | "int"    -> "number"
+    | _ -> csharpType
 
 let convertProperty (propertyDeclaration: PropertyDeclarationSyntax) = 
     let propertyType = convertType (propertyDeclaration.Type.ToString()) in
@@ -44,7 +47,7 @@ let createConstructor (properties: seq<PropertyDeclarationSyntax>) =
     let propertySetters = Seq.map (fun (prop: PropertyDeclarationSyntax) ->
                                         let identifier =  (prop.Identifier.ToString()) in
                                         "if (jsonData." + identifier + ") {\n" +
-                                        "this._" + identifier + " = " + identifier + ";\n}\n") properties
+                                        "this._" + identifier + " = jsonData." + identifier + ";\n}\n") properties
     in "constructor (jsonData) {\n" + (Seq.fold (+) "" propertySetters) + "}\n"
 
 let convertClass (classDeclaration : ClassDeclarationSyntax) = 
@@ -54,5 +57,5 @@ let convertClass (classDeclaration : ClassDeclarationSyntax) =
     in
     let constructor = createConstructor properties in
     let convertedProperties = Seq.fold (+) "" (Seq.map (fun prop -> (convertProperty prop) + "\n") properties) in
-    "class " + classDeclaration.Identifier.ToString() + " {\n" + constructor + convertedProperties + "}"
+    "export default class " + classDeclaration.Identifier.ToString() + " {\n" + constructor + convertedProperties + "}"
 

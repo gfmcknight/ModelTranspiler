@@ -46,6 +46,6 @@ let Main(args: string []) =
 
 
     printf "%s" (convertClass (Seq.head myClassesAsClasses))
-    0
+    if ((Seq.length args) = 0) then Console.ReadLine(); 0 else 0
 (*for i in root.DescendantNodesAndSelf() do
     printf "\n\n%s ###::: %s\n" (i.GetType().Name) (i.ToString()) *)

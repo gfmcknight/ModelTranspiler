@@ -10,10 +10,13 @@
     "@types/node": "^8.0.14"
   },
   "dependencies": {
-    "jest": "^24.7.1",
-    "jest-editor-support": "^25.0.1"
+    "@types/mocha": "^5.2.6",
+    "mocha": "^6.1.4",
+    "typescript": "^3.4.5"
   },
   "scripts": {
-    "test": "jest"
+    "test": "mocha",
+    "build": "tsc",
+    "clean": "tsc --clean"
   }
 }

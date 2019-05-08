@@ -4,6 +4,7 @@ using System.Text;
 
 namespace TestSamples
 {
+    [Transpile]
     public class Class1
     {
         public int MyNumber { get; private set; }

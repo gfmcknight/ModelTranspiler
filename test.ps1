@@ -5,7 +5,7 @@ Set-Location ..
 Remove-Item Tests\gen\*.ts
 
 # TODO: This will need to evolve
-dotnet .\ModelTranspiler\bin\Debug\netcoreapp2.1\ModelTranspiler.dll .\TestSamples\Class1.cs > Tests\gen\Class1.ts
+dotnet .\ModelTranspiler\bin\Debug\netcoreapp2.1\ModelTranspiler.dll "TestSamples/" "Tests/gen/" "TestSamples.csproj"
 
 Set-Location Tests/
 Remove-Item gen/*.js*

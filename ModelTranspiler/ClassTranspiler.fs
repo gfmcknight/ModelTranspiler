@@ -1,13 +1,26 @@
 ﻿module ClassTranspiler
 
 open System
-open Microsoft.CodeAnalysis.CSharp
-open Microsoft.CodeAnalysis
-open Microsoft.CodeAnalysis.CSharp.Syntax
 open System.Reflection
 open System.Linq.Expressions
+open Microsoft.CodeAnalysis
+open Microsoft.CodeAnalysis.CSharp
+open Microsoft.CodeAnalysis.CSharp.Syntax
 
-let convertType csharpType = 
+open CodeTranspiler
+
+type PropertyAccess = Simple | Written of Coded
+
+type Property = 
+        { get           : Optional<PropertyAccess>
+        ; set           : Optional<PropertyAccess>
+        ; jsonName      : string
+        ; declaredName  : string
+        ; declaredType  : string
+        ; convertedType : string
+        }
+
+let convertType (csharpType: string) = 
     match csharpType with
     | "double" -> "number"
     | "int"    -> "number"

@@ -1,5 +1,6 @@
 ﻿import assert = require('assert');
 import Class1 from '../gen/Class1';
+import Class2 from '../gen/Class2';
 
 describe("Test Properties", () => {
     it("Test Set Property", () => {
@@ -16,5 +17,14 @@ describe("Test Properties", () => {
         } catch (error) { }
 
         assert.equal(obj.MyNumber, 3, "Should not be able to set non-readonly properties");
+    });
+
+    it("Test JsonIgnored Property", () => {
+        var obj = new Class2({ "MyNumber": 3, "MyOtherProp": 6 });
+        assert.equal(obj.MyNumber, 3, "Should be able to get non-ignored properties");
+        try {
+            eval("obj.MyOtherProp");
+            assert.fail("Error should have been thrown");
+        } catch (error) { }
     });
 });

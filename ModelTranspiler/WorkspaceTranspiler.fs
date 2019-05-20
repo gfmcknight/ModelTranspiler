@@ -10,16 +10,14 @@ open System.Reflection
 
 open ClassTranspiler
 open System.IO
+open Util
 
 let runTask<'T> (task: Task<'T>) =
     (task.Wait())
     task.Result
 
 let hasTranspileAttribute (classNode : ClassDeclarationSyntax) =
-    Seq.exists (fun (attributeNode: AttributeSyntax) -> (attributeNode.Name.ToString()) = "Transpile") 
-                (if (classNode.AttributeLists.Count = 0) 
-                 then Seq.empty 
-                 else  Seq.cast<AttributeSyntax> (classNode.AttributeLists.First().Attributes))
+    hasAttribute "Transpile" classNode.AttributeLists
 
 let transpileDocument (document : Document) (tree : SyntaxTree) = 
     let myClasses = Seq.filter (fun i -> TypeExtensions.IsInstanceOfType(typeof<ClassDeclarationSyntax>, i))

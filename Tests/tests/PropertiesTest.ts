@@ -20,11 +20,15 @@ describe("Test Properties", () => {
     });
 
     it("Test JsonIgnored Property", () => {
-        var obj = new Class2({ "MyNumber": 3, "MyOtherProp": 6 });
-        assert.equal(obj.MyNumber, 3, "Should be able to get non-ignored properties");
+        var obj = new Class2({ "MyOtherProp": 6 });
         try {
             eval("obj.MyOtherProp");
             assert.fail("Error should have been thrown");
         } catch (error) { }
     });
+
+    it("Test JsonProperty Property", () => {
+        var obj = new Class2({ "differentNumberName": 4 });
+        assert.equal(obj.MyNumber, 4, "Property should be accessible with declared name");
+    })
 });

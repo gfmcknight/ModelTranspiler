@@ -32,49 +32,79 @@ type Property =
 (**************************************
   Reading features
 ***************************************)
-    
+(*
+ * Get the Typescript name closes to a given type
+ * in C#.
+ *)
 let convertType (csharpType: string) = 
     match csharpType with
     | "double" -> "number"
     | "int"    -> "number"
     | _ -> csharpType
 
+(*
+ * Convert an accessor declaration into an internal representation
+ * of accesses, namely, one that, in the future, will be responsive
+ * accessor bodies and 
+ *
+ * The type (getter/setter) is not a part of the internal representation,
+ * but will be needed later, so the return value is a tuple (type, accessor)
+ * where the type distinguishes get/set and the accessor 
+ *)
+let convertAccessor (accessor: AccessorDeclarationSyntax) : (AccessType * PropertyAccess) = 
+    let accessType : AccessType = match (accessor.Keyword.ToString()) with
+                                         | "get" -> Get
+                                         | "set" -> Set
+                                         | x -> raise (Exception("Invalid accessType keyword " + x))
+    in
+    if (accessor.Body = null)
+    then (accessType, Simple) 
+    else raise (NotImplementedException("Not implemented: complex accessors"))
+
+(*
+ * Take a property declaration creates an internal Property,
+ * which gives us easier access to the information we need to
+ * walk the tree in order to discover.
+ *)
 let convertProperty (declaration: PropertyDeclarationSyntax) : Property =
     let declaredType = declaration.Type.ToString() in
     let convertedType = convertType declaredType in
     let declaredName = declaration.Identifier.ToString() in
-    let jsonName = (getAllAttributes declaration.AttributeLists) 
+
+    // If the user uses a [JsonProperty] attribute, we need to
+    // remember the name because that's what we'll be using if
+    // we try to unpack a JSON object that has been serialized
+    let jsonName = (getAllAttributes declaration.AttributeLists)
                         |> Seq.tryFind (fun (attr: AttributeSyntax) -> (attr.Name.ToString()) = "JsonProperty")
                         |> function
-                            | Some attribute -> 
-                                (attribute.ArgumentList.Arguments.First().Expression).ToString().Replace("\"", "")
+                            | Some attribute ->
+                                removeQuotes (attribute.ArgumentList.Arguments.First().Expression.ToString())
                             | None -> declaredName
     in
 
+    // Get all of the accessor declarations which are not private
+    // by exploring all children of the property node. 
     let accessors = Seq.filter (fun (a: AccessorDeclarationSyntax) -> not (a.Modifiers.ToString().Contains("private")))
                         (Seq.cast<AccessorDeclarationSyntax> 
                             (Seq.filter (fun i -> TypeExtensions.IsInstanceOfType(typeof<AccessorDeclarationSyntax>, i))
                                 (Seq.cast<SyntaxNode> (declaration.DescendantNodes()))))
     in
-    let convertAccessor (accessor: AccessorDeclarationSyntax) : (AccessType * PropertyAccess) = 
-        let accessType : AccessType = match (accessor.Keyword.ToString()) with
-                                             | "get" -> Get
-                                             | "set" -> Set
-                                             | x -> raise (Exception("Invalid accessType keyword " + x))
-        in
-        if (accessor.Body = null)
-        then (accessType, Simple) 
-        else raise (NotImplementedException("Not implemented: complex accessors"))
-    in
     let convertedAccessors = Seq.map convertAccessor accessors  in
 
+    // First grab all of the accessors that are of the wrong type
+    // (ie. setter when looking for a header) and then discard the
+    // accessor type information -- we're about to place the
+    // getter/setter into our property so we no longer need this
+    // information
     let get = Seq.tryHead (convertedAccessors
                            |> Seq.filter (fun (accessorType, _ : PropertyAccess) -> accessorType = Get)
-                           |> Seq.map (fun (_, accessor) -> accessor)) in
+                           |> Seq.map (fun (_, accessor) -> accessor))
+    in
     
     let set = Seq.tryHead (convertedAccessors 
                            |> Seq.filter (fun (accessorType, _ : PropertyAccess) -> accessorType = Set)
-                           |> Seq.map (fun (_, accessor) -> accessor)) in
+                           |> Seq.map (fun (_, accessor) -> accessor)) 
+    in
     
     { get = get
     ; set = set
@@ -124,12 +154,22 @@ let createAccessors (properties : seq<Property>) =
     in
     Seq.fold (+) "" (Seq.map createAccessorsString properties)
 
+(*
+ * Generates a constructor that should hydrate a JSON object
+ * that has been serialized into a model class at the TypeScript
+ * level. Since this assumes the object was serialized, we must
+ * use the JSON name for each property.
+ *)
 let createConstructor (properties: seq<Property>) =
     let propertySetters = Seq.map (fun (prop: Property) ->
                                         "if (jsonData." + prop.jsonName + ") {\n" +
                                         "this._" + prop.declaredName + " = jsonData." + prop.jsonName + ";\n}\n") properties
     in "constructor (jsonData) {\n" + (Seq.fold (+) "" propertySetters) + "}\n"
 
+(*
+ * Reads a class declaration and transpiles it to a TypeScript
+ * class.
+ *)
 let convertClass (classDeclaration : ClassDeclarationSyntax) = 
     let propertySyntax = Seq.cast<PropertyDeclarationSyntax> (
                             Seq.filter (fun i -> TypeExtensions.IsInstanceOfType(typeof<PropertyDeclarationSyntax>, i))

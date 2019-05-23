@@ -14,3 +14,6 @@ let getAllAttributes (attributes: SyntaxList<AttributeListSyntax>) =
 let hasAttribute (name : string) (attributes: SyntaxList<AttributeListSyntax>) =
     Seq.exists (fun (attributeNode: AttributeSyntax) -> (attributeNode.Name.ToString()) = name) 
                  (getAllAttributes attributes)
+
+let removeQuotes (str: string) =
+    str.Replace("\"", "")

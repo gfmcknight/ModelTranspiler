@@ -2,9 +2,13 @@
 
 open Microsoft.CodeAnalysis
 open Microsoft.CodeAnalysis.CSharp
+open Microsoft.CodeAnalysis.CSharp.Syntax
 
-(* TODO *)
-type Env = int 
+(* 
+    Classes: new path * class name
+*)
+type Env =
+    { classes : (string * string * ClassDeclarationSyntax) list }
 
 type Coded = 
         | Ignored 

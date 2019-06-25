@@ -1,6 +1,7 @@
 ## My custom ignores
 
 # All generated files for tests
+Tests/gen/TestSamples/
 Tests/gen/*.ts
 Tests/gen/*.js
 Tests/gen/*.js.map

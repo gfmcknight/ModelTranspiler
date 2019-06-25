@@ -8,35 +8,38 @@ open Microsoft.CodeAnalysis.CSharp.Syntax
 open Microsoft.CodeAnalysis.MSBuild
 open System.Reflection
 
+open CodeTranspiler
 open ClassTranspiler
 open System.IO
 open Util
 
-let runTask<'T> (task: Task<'T>) =
-    (task.Wait())
-    task.Result
-
 let hasTranspileAttribute (classNode : ClassDeclarationSyntax) =
     hasAttribute "Transpile" classNode.AttributeLists
 
-let transpileDocument (document : Document) (tree : SyntaxTree) = 
-    let myClasses = Seq.filter (fun i -> TypeExtensions.IsInstanceOfType(typeof<ClassDeclarationSyntax>, i))
-                                (Seq.cast<SyntaxNode> (tree.GetRoot().DescendantNodes()))
-    in
-    let myClassesAsClasses = Seq.cast<ClassDeclarationSyntax> myClasses in
-    let annotatedClasses = Seq.filter hasTranspileAttribute myClassesAsClasses
-    printfn "%s" document.FilePath;
-    let transpilations = Seq.fold (+) "" (Seq.map convertClass annotatedClasses) in
-    transpilations
-
-let transpileAndWriteDocument (originalPath : string) (newPath : string) (document : Document, tree : SyntaxTree) =
-    let newFilePath = (newPath + document.Name.Replace(".cs", ".ts"))
-    let newDocumentText = transpileDocument document tree in
+let transpileAndWriteDocument (originalPath : string) (newPath : string) (ns : string, name : string, tree : ClassDeclarationSyntax) =
+    let newFilePath = (newPath + (ns.Replace(".", "/")) + "/" +  name + ".ts")
+    let newDocumentText = convertClass tree in
     
     if newDocumentText.Length > 0
         then File.WriteAllText(newFilePath, newDocumentText); newFilePath
-        else "(Not Written)"
-    
+        else "(Not Written)"    
+
+let envEntriesFromNamespace (ns : NamespaceDeclarationSyntax) : (string * string * ClassDeclarationSyntax) seq =
+    let nsName = (ns.Name.ToString()) in
+    Seq.map (fun (classDeclaration : ClassDeclarationSyntax) -> (nsName, (classDeclaration.Identifier.ToString()), classDeclaration))
+        (getChildrenOfType<ClassDeclarationSyntax> ns |> Seq.filter hasTranspileAttribute)
+
+let makeEnv (trees : seq<SyntaxTree>) : Env = 
+    let nodes = Seq.map (fun (tree : SyntaxTree) -> tree.GetRoot()) trees
+    let namespaces = Seq.concat (Seq.map getChildrenOfType<NamespaceDeclarationSyntax> nodes) in
+    let envEntries = Seq.concat (Seq.map envEntriesFromNamespace namespaces) in
+    {
+        classes = Seq.toList envEntries
+    }
+
+let makeDirectoriesFromEnv (newpath : string) (env : Env) : seq<DirectoryInfo> =
+    (Seq.map (fun (path : string) -> (Directory.CreateDirectory(newpath + "/" + path)))
+         (Seq.map (fun ((ns : string), (name : string), (decl : ClassDeclarationSyntax)) -> ns.Replace('.', '/')) env.classes))
 
 let transpileProject (path : string) (newpath : string) (projName : string) = 
     let workspace = MSBuildWorkspace.Create() in
@@ -48,4 +51,7 @@ let transpileProject (path : string) (newpath : string) (projName : string) =
                                          (doc.Name.Contains("AssemblyInfo.cs")))) project.Documents in
     
     let trees = Seq.map (fun (d: Document) -> runTask (d.GetSyntaxTreeAsync())) documents in
-    Seq.map (transpileAndWriteDocument path newpath) (Seq.zip documents trees)
+    let env = makeEnv trees
+    in let y = (makeDirectoriesFromEnv newpath env) |> Seq.toList
+    printfn "%A" env
+    Seq.map (transpileAndWriteDocument path newpath) env.classes

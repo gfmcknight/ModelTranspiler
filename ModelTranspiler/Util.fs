@@ -6,6 +6,12 @@ open System.Linq.Expressions
 open Microsoft.CodeAnalysis
 open Microsoft.CodeAnalysis.CSharp
 open Microsoft.CodeAnalysis.CSharp.Syntax
+open System.Threading.Tasks
+
+let getChildrenOfType<'T> (node : SyntaxNode) =
+    (Seq.filter (fun i -> TypeExtensions.IsInstanceOfType(typeof<'T>, i))
+        (Seq.cast<SyntaxNode> (node.DescendantNodes())))
+    |> Seq.cast<'T>
 
 let getAllAttributes (attributes: SyntaxList<AttributeListSyntax>) =
     let allAttributeLists = Seq.cast<AttributeListSyntax> attributes in 
@@ -17,3 +23,7 @@ let hasAttribute (name : string) (attributes: SyntaxList<AttributeListSyntax>) =
 
 let removeQuotes (str: string) =
     str.Replace("\"", "")
+
+let runTask<'T> (task: Task<'T>) =
+    (task.Wait())
+    task.Result

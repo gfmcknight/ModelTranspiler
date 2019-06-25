@@ -8,6 +8,10 @@ back/front models consistent.
 - [X] Constructors that take a JSON object that would come from a .NET Core app
 - [X] Sensitivity to JsonProperty and JsonIgnore
 - [X] Take a project and transpile all classes with a given annotation
+- [X] Directories that mirror namespaces
+- [ ] A toJson() function on models to serialize to the server
+- [ ] Support for C# types: double, int, string, bool, Guid, DateTime
+- [ ] Models that hold other models
 - [ ] RPC procedure for methods, getters/setters with code
 - [ ] Some sort of library for RPC binding on the server side
 - [ ] Transpile simple methods and getters/setters

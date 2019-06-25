@@ -1,6 +1,6 @@
 ﻿import assert = require('assert');
-import Class1 from '../gen/Class1';
-import Class2 from '../gen/Class2';
+import Class1 from '../gen/TestSamples/Class1';
+import Class2 from '../gen/TestSamples/Class2';
 
 describe("Test Properties", () => {
     it("Test Set Property", () => {

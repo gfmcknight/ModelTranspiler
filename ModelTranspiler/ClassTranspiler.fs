@@ -19,6 +19,7 @@ let POSTLUDE = "\n\n/** END AUTO-GENERATED CODE **/\n"
 let FIELD_LIST_HEADER = "\n/** AUTO-GENERATED FIELD LIST **/\n\n"
 let CONSTRUCTOR_HEADER = "\n/** AUTO-GENERATED CONSTRUCTOR **/\n\n"
 let ACCESSORS_HEADER = "\n/** AUTO-GENERATED GETTERS AND SETTERS **/\n\n"
+let METHODS_HEADER = "\n/** AUTO-GENERATED METHODS **/\n\n"
 
 type Property = 
         { get           : PropertyAccess option
@@ -166,6 +167,15 @@ let createConstructor (properties: seq<Property>) =
                                         "this._" + prop.declaredName + " = jsonData." + prop.jsonName + ";\n}\n") properties
     in "constructor (jsonData) {\n" + (Seq.fold (+) "" propertySetters) + "}\n"
 
+let createToJSON (properties: seq<Property>) = 
+    let allSets = Seq.map (fun (prop: Property) -> 
+                        prop.jsonName + ": this._" + prop.declaredName) properties
+    if (Seq.isEmpty allSets) then "toJSON () { return {}; }\n"
+    else
+        let firstSet = Seq.head allSets in
+        let remainingSets = Seq.map (fun x -> ",\n" + x) (Seq.tail allSets)
+        in "toJSON () {\nreturn {\n" + (Seq.fold (+) firstSet remainingSets) + "\n};\n}"
+
 (*
  * Reads a class declaration and transpiles it to a TypeScript
  * class.
@@ -180,9 +190,11 @@ let convertClass (classDeclaration : ClassDeclarationSyntax) =
     let constructor = createConstructor properties in
     let fieldList = createFieldList properties in
     let accessors = createAccessors properties in
+    let methods = createToJSON properties in
     PRELUDE + 
         "export default class " + classDeclaration.Identifier.ToString() 
                                 + " {\n" + FIELD_LIST_HEADER + fieldList 
                                          + CONSTRUCTOR_HEADER + constructor 
-                                         + ACCESSORS_HEADER + accessors + "}"
+                                         + ACCESSORS_HEADER + accessors 
+                                         + METHODS_HEADER + methods + "}"
                                 + POSTLUDE

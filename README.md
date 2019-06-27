@@ -9,7 +9,7 @@ back/front models consistent.
 - [X] Sensitivity to JsonProperty and JsonIgnore
 - [X] Take a project and transpile all classes with a given annotation
 - [X] Directories that mirror namespaces
-- [ ] A toJson() function on models to serialize to the server
+- [X] A toJson() function on models to serialize to the server
 - [ ] Support for C# types: double, int, string, bool, Guid, DateTime
 - [ ] Models that hold other models
 - [ ] RPC procedure for methods, getters/setters with code

@@ -30,5 +30,5 @@ describe("Test Properties", () => {
     it("Test JsonProperty Property", () => {
         var obj = new Class2({ "differentNumberName": 4 });
         assert.equal(obj.MyNumber, 4, "Property should be accessible with declared name");
-    })
+    });
 });

@@ -38,6 +38,9 @@
     <Content Include="package.json" />
     <Content Include="README.md" />
     <Content Include="tsconfig.json" />
+    <TypeScriptCompile Include="RoundTripper.ts">
+      <SubType>Code</SubType>
+    </TypeScriptCompile>
     <TypeScriptCompile Include="tests\NamespaceTests.ts">
       <SubType>Code</SubType>
       <TestFramework>Mocha</TestFramework>

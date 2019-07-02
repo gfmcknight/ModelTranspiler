@@ -1,6 +1,7 @@
 ﻿import assert = require('assert');
 import Class1 from '../gen/TestSamples/Class1';
 import Class2 from '../gen/TestSamples/Class2';
+import AllValueTypesClass from '../gen/TestSamples/AllValueTypesClass';
 
 describe("Test Properties", () => {
     it("Test Set Property", () => {
@@ -30,5 +31,12 @@ describe("Test Properties", () => {
     it("Test JsonProperty Property", () => {
         var obj = new Class2({ "differentNumberName": 4 });
         assert.equal(obj.MyNumber, 4, "Property should be accessible with declared name");
+    });
+
+    it("Test DateTime Property", () => {
+        var obj = new AllValueTypesClass({ "DateTimeProperty": "2019-06-26T11:11:11" });
+        assert.equal(obj.DateTimeProperty.getDate(), 26);
+        assert.equal(obj.DateTimeProperty.getMonth(), 5);
+        assert.equal(obj.DateTimeProperty.getFullYear(), 2019);
     });
 });

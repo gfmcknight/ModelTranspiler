@@ -39,9 +39,31 @@ type Property =
  *)
 let convertType (csharpType: string) = 
     match csharpType with
-    | "double" -> "number"
-    | "int"    -> "number"
+    | "double"   -> "number"
+    | "int"      -> "number"
+    | "bool"     -> "boolean"
+    | "DateTime" -> "Date"
+    | "Guid"     -> "string"
     | _ -> csharpType
+
+(*
+ * Converter to help grab a certain field from
+ * the JSON object which comes from the server,
+ * and transform it into the correct type.
+ *)
+let fromJSONObject (csharpType: string) (jsonObjectAccessor: string) =
+    match csharpType with
+    | "DateTime" -> "new Date(" + jsonObjectAccessor + " + 'Z')"
+    | _ -> jsonObjectAccessor
+
+(*
+ * Converter to help create a JSON payload to
+ * send to the server.
+ *)
+let toJSONObject (csharpType: string) (fieldAccessor: string) =
+    match csharpType with
+    | "DateTime" -> fieldAccessor + ".toJSON()"
+    | _ -> fieldAccessor
 
 (*
  * Convert an accessor declaration into an internal representation
@@ -164,12 +186,15 @@ let createAccessors (properties : seq<Property>) =
 let createConstructor (properties: seq<Property>) =
     let propertySetters = Seq.map (fun (prop: Property) ->
                                         "if (jsonData." + prop.jsonName + ") {\n" +
-                                        "this._" + prop.declaredName + " = jsonData." + prop.jsonName + ";\n}\n") properties
+                                        "this._" + prop.declaredName + " = " +
+                                            (fromJSONObject prop.declaredType ("jsonData." + prop.jsonName)) 
+                                         + ";\n}\n") properties
     in "constructor (jsonData) {\n" + (Seq.fold (+) "" propertySetters) + "}\n"
 
 let createToJSON (properties: seq<Property>) = 
     let allSets = Seq.map (fun (prop: Property) -> 
-                        prop.jsonName + ": this._" + prop.declaredName) properties
+                        prop.jsonName + ": " + (toJSONObject prop.declaredType ("this._" + prop.declaredName)))
+                            properties in
     if (Seq.isEmpty allSets) then "toJSON () { return {}; }\n"
     else
         let firstSet = Seq.head allSets in

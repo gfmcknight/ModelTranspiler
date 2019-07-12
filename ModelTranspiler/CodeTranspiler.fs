@@ -5,7 +5,7 @@ open Microsoft.CodeAnalysis.CSharp
 open Microsoft.CodeAnalysis.CSharp.Syntax
 
 (* 
-    Classes: new path * class name * Tree
+    Classes: namespace * class name * Tree
 *)
 type Env =
     { classes : (string * string * ClassDeclarationSyntax) list }

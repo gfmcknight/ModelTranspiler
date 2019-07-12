@@ -33,18 +33,31 @@ type Property =
 (**************************************
   Reading features
 ***************************************)
+
+(*
+ * Find an existing transpiled class and report
+ * the dependency to it.
+ *)
+let tryGetModelFromEnv (typeName: string) (env: Env) : (string * (string * string) list) =
+   let candidates = 
+           List.filter (fun (_, className, _) -> className = typeName) env.classes
+   in 
+   if (candidates.IsEmpty) then (typeName, []) else 
+      let (ns, className, _) = candidates.Head in 
+          (className, [ (className, (makeFilePath ns) + "/" + className) ])
+
 (*
  * Get the Typescript name closes to a given type
  * in C#.
  *)
-let convertType (csharpType: string) = 
+let convertType (csharpType: string) (env: Env) : string * (string * string) list = 
     match csharpType with
-    | "double"   -> "number"
-    | "int"      -> "number"
-    | "bool"     -> "boolean"
-    | "DateTime" -> "Date"
-    | "Guid"     -> "string"
-    | _ -> csharpType
+    | "double"   -> ("number", [])
+    | "int"      -> ("number", [])
+    | "bool"     -> ("boolean", [])
+    | "DateTime" -> ("Date", [])
+    | "Guid"     -> ("string", [])
+    | _ -> tryGetModelFromEnv csharpType env
 
 (*
  * Converter to help grab a certain field from
@@ -54,7 +67,12 @@ let convertType (csharpType: string) =
 let fromJSONObject (csharpType: string) (jsonObjectAccessor: string) =
     match csharpType with
     | "DateTime" -> "new Date(" + jsonObjectAccessor + " + 'Z')"
-    | _ -> jsonObjectAccessor
+    | "double"   -> jsonObjectAccessor
+    | "int"      -> jsonObjectAccessor
+    | "bool"     -> jsonObjectAccessor
+    | "Guid"     -> jsonObjectAccessor
+    | "string"     -> jsonObjectAccessor
+    | _ -> "new " + csharpType + "(" + jsonObjectAccessor + ")"
 
 (*
  * Converter to help create a JSON payload to
@@ -63,7 +81,12 @@ let fromJSONObject (csharpType: string) (jsonObjectAccessor: string) =
 let toJSONObject (csharpType: string) (fieldAccessor: string) =
     match csharpType with
     | "DateTime" -> fieldAccessor + ".toJSON()"
-    | _ -> fieldAccessor
+    | "double"   -> fieldAccessor
+    | "int"      -> fieldAccessor
+    | "bool"     -> fieldAccessor
+    | "Guid"     -> fieldAccessor
+    | "string"   -> fieldAccessor
+    | _ -> fieldAccessor + ".toJSON()"
 
 (*
  * Convert an accessor declaration into an internal representation
@@ -89,9 +112,9 @@ let convertAccessor (accessor: AccessorDeclarationSyntax) : (AccessType * Proper
  * which gives us easier access to the information we need to
  * walk the tree in order to discover.
  *)
-let convertProperty (declaration: PropertyDeclarationSyntax) : Property =
+let convertProperty (env: Env) (declaration: PropertyDeclarationSyntax) : Property * (string * string) list =
     let declaredType = declaration.Type.ToString() in
-    let convertedType = convertType declaredType in
+    let (convertedType, dependencies) = convertType declaredType env in
     let declaredName = declaration.Identifier.ToString() in
 
     // If the user uses a [JsonProperty] attribute, we need to
@@ -129,20 +152,22 @@ let convertProperty (declaration: PropertyDeclarationSyntax) : Property =
                            |> Seq.map (fun (_, accessor) -> accessor)) 
     in
     
+    (
     { get = get
     ; set = set
     ; jsonName = jsonName
     ; declaredName = declaredName
     ; declaredType = declaredType
     ; convertedType = convertedType 
-    }
+    },
+    dependencies)
 
-let collectProperties (declarations: seq<PropertyDeclarationSyntax>) =
+let collectProperties (env: Env) (declarations: seq<PropertyDeclarationSyntax>) =
     let filteredDeclarations = 
             (Seq.filter 
                 (fun (d : PropertyDeclarationSyntax) -> not (hasAttribute "JsonIgnore" d.AttributeLists)) 
             declarations) in
-     Seq.map convertProperty filteredDeclarations
+     Seq.map (convertProperty env) filteredDeclarations
 
 (**************************************
   Code Generation
@@ -201,22 +226,31 @@ let createToJSON (properties: seq<Property>) =
         let remainingSets = Seq.map (fun x -> ",\n" + x) (Seq.tail allSets)
         in "toJSON () {\nreturn {\n" + (Seq.fold (+) firstSet remainingSets) + "\n};\n}"
 
+let createImports (genDirectory: string) (currentNS: string) (dependencies: (string * string) list) : string =
+    let currentDir = genDirectory + makeFilePath currentNS in
+    let imports = List.map (fun (dep: string, fullpath: string) -> 
+                            "import " + dep + " from '" + (relativePath currentDir (genDirectory + fullpath)) + "';\n") dependencies
+    in List.fold (+) "" imports
+
 (*
  * Reads a class declaration and transpiles it to a TypeScript
  * class.
  *)
-let convertClass (classDeclaration : ClassDeclarationSyntax) = 
+let convertClass (env: Env) (genDirectory: string) (ns: string) (classDeclaration : ClassDeclarationSyntax) = 
     let propertySyntax = Seq.cast<PropertyDeclarationSyntax> (
                             Seq.filter (fun i -> TypeExtensions.IsInstanceOfType(typeof<PropertyDeclarationSyntax>, i))
                                 (Seq.cast<SyntaxNode> (classDeclaration.DescendantNodes())))
     in
-    let properties = collectProperties propertySyntax
+    let (properties, dependeciesLists) = 
+        Seq.fold (fun (s1, s2) (v1, v2) -> ([v1]@s1, [v2]@s2)) ([], []) (collectProperties env propertySyntax)
+    let dependencies = List.concat dependeciesLists in
 
+    let importList = createImports genDirectory ns dependencies
     let constructor = createConstructor properties in
     let fieldList = createFieldList properties in
     let accessors = createAccessors properties in
     let methods = createToJSON properties in
-    PRELUDE + 
+    importList + PRELUDE + 
         "export default class " + classDeclaration.Identifier.ToString() 
                                 + " {\n" + FIELD_LIST_HEADER + fieldList 
                                          + CONSTRUCTOR_HEADER + constructor 

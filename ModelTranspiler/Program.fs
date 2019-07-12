@@ -20,7 +20,7 @@ let Main(args: string []) =
     in
 
     MSBuildLocator.RegisterDefaults() |> ignore;
-    transpileProject fromPath toPath projName |> (printfn "%A");
+    transpileProject fromPath toPath projName |> Seq.map ((+) ";") |> Seq.fold (+) "" |> (printfn "%s");
     if waitForInput then
         Console.ReadLine() |> ignore; 0
     else 0

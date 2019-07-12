@@ -11,7 +11,7 @@ back/front models consistent.
 - [X] Directories that mirror namespaces
 - [X] A toJson() function on models to serialize to the server
 - [X] Support for C# types: double, int, string, bool, Guid, DateTime
-- [ ] Models that hold other models
+- [X] Models that hold other models
 - [ ] RPC procedure for methods, getters/setters with code
 - [ ] Some sort of library for RPC binding on the server side
 - [ ] Transpile simple methods and getters/setters

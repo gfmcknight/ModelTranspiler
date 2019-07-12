@@ -1,2 +1,3 @@
 TestSamples.Class1
 TestSamples.AllValueTypesClass
+TestSamples.Class4

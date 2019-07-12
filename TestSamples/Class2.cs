@@ -8,7 +8,7 @@ namespace TestSamples
     public class Class2
     {
         [JsonProperty("differentNumberName")]
-        public int MyNumber { get; private set; }
+        public int MyNumber { get; set; }
         [JsonIgnore]
         public double MyOtherProp { get; set; }
     }

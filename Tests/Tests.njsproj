@@ -45,6 +45,10 @@
       <SubType>Code</SubType>
       <TestFramework>Mocha</TestFramework>
     </TypeScriptCompile>
+    <TypeScriptCompile Include="tests\NestedModelTest.ts">
+      <SubType>Code</SubType>
+      <TestFramework>Mocha</TestFramework>
+    </TypeScriptCompile>
     <TypeScriptCompile Include="tests\PropertiesTest.ts">
       <SubType>Code</SubType>
       <TestFramework>Mocha</TestFramework>

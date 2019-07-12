@@ -16,9 +16,9 @@ open Util
 let hasTranspileAttribute (classNode : ClassDeclarationSyntax) =
     hasAttribute "Transpile" classNode.AttributeLists
 
-let transpileAndWriteDocument (originalPath : string) (newPath : string) (ns : string, name : string, tree : ClassDeclarationSyntax) =
-    let newFilePath = (newPath + (ns.Replace(".", "/")) + "/" +  name + ".ts")
-    let newDocumentText = convertClass tree in
+let transpileAndWriteDocument (env: Env) (originalPath : string) (newPath : string) (ns : string, name : string, tree : ClassDeclarationSyntax) =
+    let newFilePath = (newPath + (makeFilePath ns) + "/" +  name + ".ts")
+    let newDocumentText = convertClass env newPath ns tree in
     
     if newDocumentText.Length > 0
         then File.WriteAllText(newFilePath, newDocumentText); newFilePath
@@ -53,5 +53,4 @@ let transpileProject (path : string) (newpath : string) (projName : string) =
     let trees = Seq.map (fun (d: Document) -> runTask (d.GetSyntaxTreeAsync())) documents in
     let env = makeEnv trees
     in let y = (makeDirectoriesFromEnv newpath env) |> Seq.toList
-    printfn "%A" env
-    Seq.map (transpileAndWriteDocument path newpath) env.classes
+    Seq.map (transpileAndWriteDocument env path newpath) env.classes

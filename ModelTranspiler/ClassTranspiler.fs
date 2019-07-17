@@ -208,23 +208,34 @@ let createAccessors (properties : seq<Property>) =
  * level. Since this assumes the object was serialized, we must
  * use the JSON name for each property.
  *)
-let createConstructor (properties: seq<Property>) =
+let createConstructor (properties: seq<Property>) (baseClassName: string option) =
+    let superCall = match baseClassName with
+                    | None -> ""
+                    | Some _ -> "super(jsonData);\n"
     let propertySetters = Seq.map (fun (prop: Property) ->
                                         "if (jsonData." + prop.jsonName + ") {\n" +
                                         "this._" + prop.declaredName + " = " +
                                             (fromJSONObject prop.declaredType ("jsonData." + prop.jsonName)) 
                                          + ";\n}\n") properties
-    in "constructor (jsonData) {\n" + (Seq.fold (+) "" propertySetters) + "}\n"
+    in "constructor (jsonData) {\n" + superCall + (Seq.fold (+) "" propertySetters) + "}\n"
 
-let createToJSON (properties: seq<Property>) = 
+let createToJSON (properties: seq<Property>) (baseClassName: string option) = 
     let allSets = Seq.map (fun (prop: Property) -> 
                         prop.jsonName + ": " + (toJSONObject prop.declaredType ("this._" + prop.declaredName)))
                             properties in
-    if (Seq.isEmpty allSets) then "toJSON () { return {}; }\n"
-    else
-        let firstSet = Seq.head allSets in
-        let remainingSets = Seq.map (fun x -> ",\n" + x) (Seq.tail allSets)
-        in "toJSON () {\nreturn {\n" + (Seq.fold (+) firstSet remainingSets) + "\n};\n}"
+    let thisClassJson = 
+        if (Seq.isEmpty allSets) then "{}"
+        else
+            let firstSet = Seq.head allSets in
+            let remainingSets = Seq.map (fun x -> ",\n" + x) (Seq.tail allSets)
+            in "{\n" + (Seq.fold (+) firstSet remainingSets) + "\n}"
+    in
+    let body = match baseClassName with
+                | None -> "return " + thisClassJson + ";\n"
+                | Some _ -> "var baseClassJSON = super.toJSON();\n" +
+                            "return Object.assign(baseClassJSON , " + thisClassJson + ");\n"
+    in
+    "toJSON() {\n" + body + "}\n"
 
 let createImports (genDirectory: string) (currentNS: string) (dependencies: (string * string) list) : string =
     let currentDir = genDirectory + makeFilePath currentNS in
@@ -237,21 +248,32 @@ let createImports (genDirectory: string) (currentNS: string) (dependencies: (str
  * class.
  *)
 let convertClass (env: Env) (genDirectory: string) (ns: string) (classDeclaration : ClassDeclarationSyntax) = 
+    let baseClassInfo = match classDeclaration.BaseList with 
+                        | null -> None 
+                        | _    -> Some (tryGetModelFromEnv (classDeclaration.BaseList.GetFirstToken().GetNextToken().ToString()) env)
+    let (baseClassName: string option, baseClassDependencies : (string * string) list ) = 
+                                            match baseClassInfo with 
+                                               | None -> (None, []) 
+                                               | Some (name, dependencyList) -> ((Some name), dependencyList)
+
     let propertySyntax = Seq.cast<PropertyDeclarationSyntax> (
                             Seq.filter (fun i -> TypeExtensions.IsInstanceOfType(typeof<PropertyDeclarationSyntax>, i))
                                 (Seq.cast<SyntaxNode> (classDeclaration.DescendantNodes())))
     in
     let (properties, dependeciesLists) = 
         Seq.fold (fun (s1, s2) (v1, v2) -> ([v1]@s1, [v2]@s2)) ([], []) (collectProperties env propertySyntax)
-    let dependencies = List.concat dependeciesLists in
+    let dependencies = List.concat (baseClassDependencies::dependeciesLists) in
 
     let importList = createImports genDirectory ns dependencies
-    let constructor = createConstructor properties in
+    let extendsClause = match baseClassName with
+                        | None -> ""
+                        | Some name -> " extends " + name
+    let constructor = createConstructor properties baseClassName in
     let fieldList = createFieldList properties in
     let accessors = createAccessors properties in
-    let methods = createToJSON properties in
+    let methods = createToJSON properties baseClassName in
     importList + PRELUDE + 
-        "export default class " + classDeclaration.Identifier.ToString() 
+        "export default class " + classDeclaration.Identifier.ToString() + extendsClause
                                 + " {\n" + FIELD_LIST_HEADER + fieldList 
                                          + CONSTRUCTOR_HEADER + constructor 
                                          + ACCESSORS_HEADER + accessors 

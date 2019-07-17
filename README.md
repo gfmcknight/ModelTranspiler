@@ -12,6 +12,9 @@ back/front models consistent.
 - [X] A toJson() function on models to serialize to the server
 - [X] Support for C# types: double, int, string, bool, Guid, DateTime
 - [X] Models that hold other models
+- [X] Inheritance in models
+- [ ] Transpilation of methods when exact TS code is given
 - [ ] RPC procedure for methods, getters/setters with code
 - [ ] Some sort of library for RPC binding on the server side
+- [ ] Support for lists and dictionaries
 - [ ] Transpile simple methods and getters/setters

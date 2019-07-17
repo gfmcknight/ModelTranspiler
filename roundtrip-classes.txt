@@ -2,3 +2,4 @@ TestSamples.Class1
 TestSamples.AllValueTypesClass
 TestSamples.Class4
 TestSamples.Class5
+TestSamples.Class6

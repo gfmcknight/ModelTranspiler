@@ -21,8 +21,17 @@ let hasAttribute (name : string) (attributes: SyntaxList<AttributeListSyntax>) =
     Seq.exists (fun (attributeNode: AttributeSyntax) -> (attributeNode.Name.ToString()) = name) 
                  (getAllAttributes attributes)
 
+let getAttribute (name: string) (attributes: SyntaxList<AttributeListSyntax>) =
+    Seq.find (fun (attributeNode: AttributeSyntax) -> (attributeNode.Name.ToString()) = name) 
+                (getAllAttributes attributes)
+
+let argFromAttribute (arg: int) (attribute: AttributeSyntax) =
+    (attribute.ArgumentList.Arguments.Item arg).Expression
+
 let removeQuotes (str: string) =
-    str.Replace("\"", "")
+    let firstQuote = str.IndexOf('"') in
+    let lastQuote = str.LastIndexOf('"') in
+    str.Substring(firstQuote + 1, lastQuote - firstQuote - 1)
 
 let runTask<'T> (task: Task<'T>) =
     (task.Wait())
@@ -46,3 +55,9 @@ let relativePath (source: string) (destination: string) : string =
 
 let makeFilePath (ns: string) : string =
     (ns.Replace(".", "/"))
+
+let flipZipDirection<'T, 'R> (sequence : ('T * 'R) list) : ('T list * 'R list) =
+     List.fold (fun (s1, s2) (v1, v2) -> ([v1]@s1, [v2]@s2)) ([], []) sequence
+
+let commaSeparatedList (items: seq<string>) : string =
+    Seq.fold (fun (acc:string) (elem:string) -> match acc with "" -> elem | _ -> acc + ", " + elem)  "" items

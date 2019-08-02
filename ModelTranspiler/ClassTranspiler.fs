@@ -30,6 +30,20 @@ type Property =
         ; convertedType : string
         }
 
+type ParamInfo =
+        { name : string
+        ; declaredType : string
+        ; convertedType : string
+        }
+
+type MethodInfo =
+        { parameters : ParamInfo list
+        ; name : string
+        ; transpileDirective : Coded
+        ; declaredReturnType: string
+        ; convertedReturnType: string
+        }
+
 (**************************************
   Reading features
 ***************************************)
@@ -38,7 +52,7 @@ type Property =
  * Find an existing transpiled class and report
  * the dependency to it.
  *)
-let tryGetModelFromEnv (typeName: string) (env: Env) : (string * (string * string) list) =
+let tryGetModelFromEnv (typeName: string) (env: Env) : (string * Dependencies) =
    let candidates = 
            List.filter (fun (_, className, _) -> className = typeName) env.classes
    in 
@@ -50,7 +64,7 @@ let tryGetModelFromEnv (typeName: string) (env: Env) : (string * (string * strin
  * Get the Typescript name closes to a given type
  * in C#.
  *)
-let convertType (csharpType: string) (env: Env) : string * (string * string) list = 
+let convertType (csharpType: string) (env: Env) : string * Dependencies =
     match csharpType with
     | "double"   -> ("number", [])
     | "int"      -> ("number", [])
@@ -112,7 +126,7 @@ let convertAccessor (accessor: AccessorDeclarationSyntax) : (AccessType * Proper
  * which gives us easier access to the information we need to
  * walk the tree in order to discover.
  *)
-let convertProperty (env: Env) (declaration: PropertyDeclarationSyntax) : Property * (string * string) list =
+let convertProperty (env: Env) (declaration: PropertyDeclarationSyntax) : Property * Dependencies =
     let declaredType = declaration.Type.ToString() in
     let (convertedType, dependencies) = convertType declaredType env in
     let declaredName = declaration.Identifier.ToString() in
@@ -124,7 +138,7 @@ let convertProperty (env: Env) (declaration: PropertyDeclarationSyntax) : Proper
                         |> Seq.tryFind (fun (attr: AttributeSyntax) -> (attr.Name.ToString()) = "JsonProperty")
                         |> function
                             | Some attribute ->
-                                removeQuotes (attribute.ArgumentList.Arguments.First().Expression.ToString())
+                                removeQuotes ((argFromAttribute 0 attribute).ToString())
                             | None -> declaredName
     in
 
@@ -168,6 +182,58 @@ let collectProperties (env: Env) (declarations: seq<PropertyDeclarationSyntax>) 
                 (fun (d : PropertyDeclarationSyntax) -> not (hasAttribute "JsonIgnore" d.AttributeLists)) 
             declarations) in
      Seq.map (convertProperty env) filteredDeclarations
+
+(*
+ * Take a MethodDeclarationSyntax and gather all important facts
+ * for transpiling into our internal representation
+ *)
+
+let convertMethod (env: Env) (declaration: MethodDeclarationSyntax) : MethodInfo * Dependencies =
+    let name = declaration.Identifier.ToString() in
+
+    (*
+     * Gathers the necessary information and dependency from a
+     * parameter for transpilation.
+     *)
+    let convertParam (param : ParameterSyntax) : ParamInfo * Dependencies =
+        let paramName = param.Identifier.ToString() in
+        let declaredType = param.Type.ToString() in
+        let (convertedType, paramDependencies) = convertType declaredType env in
+        (
+            { name = paramName
+            ; declaredType = declaredType
+            ; convertedType = convertedType
+            }
+        , paramDependencies
+        )
+    in
+    let (parameters, paramDependencies) =
+        flipZipDirection (Seq.toList (Seq.map convertParam (declaration.ParameterList.Parameters)))
+
+    let declaredReturnType = declaration.ReturnType.ToString() in
+    let (convertedReturnType, returnDependency) = convertType declaredReturnType env in
+
+    let transpileDirective = getTranpileDirective declaration
+
+    // TODO: The transpiler will eventually get some amount of dependencies
+    // from the transpilation itself
+    let dependencies = List.concat (returnDependency::paramDependencies)
+
+    (
+    { parameters = parameters
+    ; name = name
+    ; transpileDirective = transpileDirective
+    ; declaredReturnType = declaredReturnType
+    ; convertedReturnType = convertedReturnType
+    }
+    , dependencies)
+
+let collectMethods (env: Env) (declarations: seq<MethodDeclarationSyntax>) : seq<MethodInfo * Dependencies> =
+    let filteredDeclarations =
+        (Seq.filter
+            (fun (d : MethodDeclarationSyntax) -> match (getTranpileDirective d) with Ignored -> false | _ -> true)
+        declarations) in
+     Seq.map (convertMethod env) filteredDeclarations
 
 (**************************************
   Code Generation
@@ -237,11 +303,20 @@ let createToJSON (properties: seq<Property>) (baseClassName: string option) =
     in
     "toJSON() {\n" + body + "}\n"
 
-let createImports (genDirectory: string) (currentNS: string) (dependencies: (string * string) list) : string =
+let createImports (genDirectory: string) (currentNS: string) (dependencies: Dependencies) : string =
     let currentDir = genDirectory + makeFilePath currentNS in
+    let dedupedDependencies = List.distinctBy (fun (dep: string, _) -> dep) dependencies in
     let imports = List.map (fun (dep: string, fullpath: string) -> 
-                            "import " + dep + " from '" + (relativePath currentDir (genDirectory + fullpath)) + "';\n") dependencies
+                            "import " + dep + " from '" + (relativePath currentDir (genDirectory + fullpath)) + "';\n") dedupedDependencies
     in List.fold (+) "" imports
+
+
+let createMethod (info: MethodInfo) : string =
+    info.name + "(" +
+    (commaSeparatedList (Seq.map (fun (param: ParamInfo) -> param.name + ": " + param.convertedType) info.parameters))
+    + ") : " + info.convertedReturnType + " {"
+    + (transpile info.transpileDirective)
+    + "}\n"
 
 (*
  * Reads a class declaration and transpiles it to a TypeScript
@@ -251,7 +326,7 @@ let convertClass (env: Env) (genDirectory: string) (ns: string) (classDeclaratio
     let baseClassInfo = match classDeclaration.BaseList with 
                         | null -> None 
                         | _    -> Some (tryGetModelFromEnv (classDeclaration.BaseList.GetFirstToken().GetNextToken().ToString()) env)
-    let (baseClassName: string option, baseClassDependencies : (string * string) list ) = 
+    let (baseClassName: string option, baseClassDependencies : Dependencies) =
                                             match baseClassInfo with 
                                                | None -> (None, []) 
                                                | Some (name, dependencyList) -> ((Some name), dependencyList)
@@ -260,9 +335,17 @@ let convertClass (env: Env) (genDirectory: string) (ns: string) (classDeclaratio
                             Seq.filter (fun i -> TypeExtensions.IsInstanceOfType(typeof<PropertyDeclarationSyntax>, i))
                                 (Seq.cast<SyntaxNode> (classDeclaration.DescendantNodes())))
     in
-    let (properties, dependeciesLists) = 
-        Seq.fold (fun (s1, s2) (v1, v2) -> ([v1]@s1, [v2]@s2)) ([], []) (collectProperties env propertySyntax)
-    let dependencies = List.concat (baseClassDependencies::dependeciesLists) in
+    let (properties, propertyDependeciesLists) =
+        flipZipDirection (Seq.toList (collectProperties env propertySyntax)) in
+
+
+    let methodSyntax = Seq.cast<MethodDeclarationSyntax> (
+                            Seq.filter (fun i -> TypeExtensions.IsInstanceOfType(typeof<MethodDeclarationSyntax>, i))
+                                (Seq.cast<SyntaxNode> (classDeclaration.DescendantNodes())))
+    let (methodInfos, methodDependencies) =
+        flipZipDirection (Seq.toList (collectMethods env methodSyntax))
+
+    let dependencies = List.concat (baseClassDependencies :: propertyDependeciesLists @ methodDependencies) in
 
     let importList = createImports genDirectory ns dependencies
     let extendsClause = match baseClassName with
@@ -271,7 +354,9 @@ let convertClass (env: Env) (genDirectory: string) (ns: string) (classDeclaratio
     let constructor = createConstructor properties baseClassName in
     let fieldList = createFieldList properties in
     let accessors = createAccessors properties in
-    let methods = createToJSON properties baseClassName in
+    let methods = (createToJSON properties baseClassName) +
+                  (Seq.fold (+) "" (Seq.map createMethod methodInfos))
+    in
     importList + PRELUDE + 
         "export default class " + classDeclaration.Identifier.ToString() + extendsClause
                                 + " {\n" + FIELD_LIST_HEADER + fieldList 

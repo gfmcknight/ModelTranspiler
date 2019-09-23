@@ -12,9 +12,6 @@ open WorkspaceTranspiler
 let Main(args: string []) =
     let (fromPath, toPath, projName, waitForInput) =
         match (args |> Array.toList) with
-            | [] -> ("C:\\Users\\gfm13\\Source\\Repos\\ModelTranspiler\\TestSamples\\",
-                     "C:\\Users\\gfm13\\Source\\Repos\\ModelTranspiler\\Tests\\gen\\",
-                     "TestSamples.csproj", true)
             | (a::b::c::[]) -> (a, b, c, false)
             | _ -> printfn "Must specify 3 args or none"; exit(1); ("","","", false)
     in

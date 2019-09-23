@@ -12,6 +12,7 @@ open CodeTranspiler
 open ClassTranspiler
 open System.IO
 open Util
+open TypeUtils
 
 let hasTranspileAttribute (classNode : ClassDeclarationSyntax) =
     hasAttribute "Transpile" classNode.AttributeLists

@@ -1,8 +1,8 @@
 ﻿using System;
 
-namespace TestSamples
+namespace TranspilerDirectives
 {
-    internal class TranspileDirectAttribute : Attribute
+    public class TranspileDirectAttribute : Attribute
     {
         private string v;
 

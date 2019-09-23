@@ -16,6 +16,5 @@ back/front models consistent.
 - [X] Transpilation of methods when exact TS code is given
 - [ ] RPC procedure for methods
 - [ ] Some sort of library for RPC binding on the server side
-- [ ] RPC and exact transpilation of getters/setters
+- [ ] RPC support for async functions
 - [ ] Support for lists and dictionaries
-- [ ] Transpile simple methods and getters/setters

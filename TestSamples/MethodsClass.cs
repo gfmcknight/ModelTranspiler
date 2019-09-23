@@ -1,11 +1,13 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Text;
+using System.Threading.Tasks;
+using TranspilerDirectives;
 
 namespace TestSamples
 {
     [Transpile]
-    class MethodsClass
+    public class MethodsClass
     {
         public int MyValue { get; set; }
 
@@ -25,6 +27,5 @@ return value;
             MyValue = value;
             return value;
         }
-
     }
 }

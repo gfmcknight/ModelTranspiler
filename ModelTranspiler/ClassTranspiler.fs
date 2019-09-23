@@ -8,6 +8,7 @@ open Microsoft.CodeAnalysis.CSharp
 open Microsoft.CodeAnalysis.CSharp.Syntax
 
 open CodeTranspiler
+open TypeUtils
 open Util
 
 type AccessType = Get | Set 
@@ -47,60 +48,6 @@ type MethodInfo =
 (**************************************
   Reading features
 ***************************************)
-
-(*
- * Find an existing transpiled class and report
- * the dependency to it.
- *)
-let tryGetModelFromEnv (typeName: string) (env: Env) : (string * Dependencies) =
-   let candidates = 
-           List.filter (fun (_, className, _) -> className = typeName) env.classes
-   in 
-   if (candidates.IsEmpty) then (typeName, []) else 
-      let (ns, className, _) = candidates.Head in 
-          (className, [ (className, (makeFilePath ns) + "/" + className) ])
-
-(*
- * Get the Typescript name closes to a given type
- * in C#.
- *)
-let convertType (csharpType: string) (env: Env) : string * Dependencies =
-    match csharpType with
-    | "double"   -> ("number", [])
-    | "int"      -> ("number", [])
-    | "bool"     -> ("boolean", [])
-    | "DateTime" -> ("Date", [])
-    | "Guid"     -> ("string", [])
-    | _ -> tryGetModelFromEnv csharpType env
-
-(*
- * Converter to help grab a certain field from
- * the JSON object which comes from the server,
- * and transform it into the correct type.
- *)
-let fromJSONObject (csharpType: string) (jsonObjectAccessor: string) =
-    match csharpType with
-    | "DateTime" -> "new Date(" + jsonObjectAccessor + " + 'Z')"
-    | "double"   -> jsonObjectAccessor
-    | "int"      -> jsonObjectAccessor
-    | "bool"     -> jsonObjectAccessor
-    | "Guid"     -> jsonObjectAccessor
-    | "string"     -> jsonObjectAccessor
-    | _ -> "new " + csharpType + "(" + jsonObjectAccessor + ")"
-
-(*
- * Converter to help create a JSON payload to
- * send to the server.
- *)
-let toJSONObject (csharpType: string) (fieldAccessor: string) =
-    match csharpType with
-    | "DateTime" -> fieldAccessor + ".toJSON()"
-    | "double"   -> fieldAccessor
-    | "int"      -> fieldAccessor
-    | "bool"     -> fieldAccessor
-    | "Guid"     -> fieldAccessor
-    | "string"   -> fieldAccessor
-    | _ -> fieldAccessor + ".toJSON()"
 
 (*
  * Convert an accessor declaration into an internal representation
@@ -188,7 +135,7 @@ let collectProperties (env: Env) (declarations: seq<PropertyDeclarationSyntax>) 
  * for transpiling into our internal representation
  *)
 
-let convertMethod (env: Env) (declaration: MethodDeclarationSyntax) : MethodInfo * Dependencies =
+let convertMethod (env: Env) (className: string) (declaration: MethodDeclarationSyntax) : MethodInfo * Dependencies =
     let name = declaration.Identifier.ToString() in
 
     (*
@@ -213,11 +160,9 @@ let convertMethod (env: Env) (declaration: MethodDeclarationSyntax) : MethodInfo
     let declaredReturnType = declaration.ReturnType.ToString() in
     let (convertedReturnType, returnDependency) = convertType declaredReturnType env in
 
-    let transpileDirective = getTranpileDirective declaration
+    let (transpileDirective, transpileDependency) = getTranpileDirective declaration className
 
-    // TODO: The transpiler will eventually get some amount of dependencies
-    // from the transpilation itself
-    let dependencies = List.concat (returnDependency::paramDependencies)
+    let dependencies = List.concat (returnDependency::transpileDependency::paramDependencies)
 
     (
     { parameters = parameters
@@ -228,12 +173,12 @@ let convertMethod (env: Env) (declaration: MethodDeclarationSyntax) : MethodInfo
     }
     , dependencies)
 
-let collectMethods (env: Env) (declarations: seq<MethodDeclarationSyntax>) : seq<MethodInfo * Dependencies> =
+let collectMethods (env: Env) (declarations: seq<MethodDeclarationSyntax>) (className: string): seq<MethodInfo * Dependencies> =
     let filteredDeclarations =
         (Seq.filter
-            (fun (d : MethodDeclarationSyntax) -> match (getTranpileDirective d) with Ignored -> false | _ -> true)
+            (fun (d : MethodDeclarationSyntax) -> match (getTranpileDirective d className) with (Ignored, _) -> false | _ -> true)
         declarations) in
-     Seq.map (convertMethod env) filteredDeclarations
+     Seq.map (convertMethod env className) filteredDeclarations
 
 (**************************************
   Code Generation
@@ -285,6 +230,18 @@ let createConstructor (properties: seq<Property>) (baseClassName: string option)
                                          + ";\n}\n") properties
     in "constructor (jsonData) {\n" + superCall + (Seq.fold (+) "" propertySetters) + "}\n"
 
+let createInit (properties: seq<Property>) (baseClassName: string option) =
+    let superCall = match baseClassName with
+                            | None -> ""
+                            | Some _ -> "super._init(jsonData);\n"
+    let propertySetters = Seq.map (fun (prop: Property) ->
+                                    "if (jsonData." + prop.jsonName + ") {\n" +
+                                    "this._" + prop.declaredName + " = " +
+                                        (fromJSONObject prop.declaredType ("jsonData." + prop.jsonName)) 
+                                     + ";\n}\n") properties
+    in "_init (jsonData) {\n" + superCall + (Seq.fold (+) "" propertySetters) + "}\n"
+
+
 let createToJSON (properties: seq<Property>) (baseClassName: string option) = 
     let allSets = Seq.map (fun (prop: Property) -> 
                         prop.jsonName + ": " + (toJSONObject prop.declaredType ("this._" + prop.declaredName)))
@@ -312,9 +269,13 @@ let createImports (genDirectory: string) (currentNS: string) (dependencies: Depe
 
 
 let createMethod (info: MethodInfo) : string =
-    info.name + "(" +
+    let asyncModifier = match info.transpileDirective with RPC _ -> "async " | _ -> ""
+    let returnType = match info.transpileDirective with
+                        | RPC _ -> "Promise<" + info.convertedReturnType + ">"
+                        | _ -> info.convertedReturnType
+    asyncModifier + info.name + "(" +
     (commaSeparatedList (Seq.map (fun (param: ParamInfo) -> param.name + ": " + param.convertedType) info.parameters))
-    + ") : " + info.convertedReturnType + " {"
+    + ") : " + returnType + " {"
     + (transpile info.transpileDirective)
     + "}\n"
 
@@ -323,6 +284,7 @@ let createMethod (info: MethodInfo) : string =
  * class.
  *)
 let convertClass (env: Env) (genDirectory: string) (ns: string) (classDeclaration : ClassDeclarationSyntax) = 
+    let className = classDeclaration.Identifier.ToString()
     let baseClassInfo = match classDeclaration.BaseList with 
                         | null -> None 
                         | _    -> Some (tryGetModelFromEnv (classDeclaration.BaseList.GetFirstToken().GetNextToken().ToString()) env)
@@ -343,7 +305,7 @@ let convertClass (env: Env) (genDirectory: string) (ns: string) (classDeclaratio
                             Seq.filter (fun i -> TypeExtensions.IsInstanceOfType(typeof<MethodDeclarationSyntax>, i))
                                 (Seq.cast<SyntaxNode> (classDeclaration.DescendantNodes())))
     let (methodInfos, methodDependencies) =
-        flipZipDirection (Seq.toList (collectMethods env methodSyntax))
+        flipZipDirection (Seq.toList (collectMethods env methodSyntax className))
 
     let dependencies = List.concat (baseClassDependencies :: propertyDependeciesLists @ methodDependencies) in
 
@@ -354,13 +316,15 @@ let convertClass (env: Env) (genDirectory: string) (ns: string) (classDeclaratio
     let constructor = createConstructor properties baseClassName in
     let fieldList = createFieldList properties in
     let accessors = createAccessors properties in
-    let methods = (createToJSON properties baseClassName) +
+    let methods = (createInit properties baseClassName) +
+                  (createToJSON properties baseClassName) +
                   (Seq.fold (+) "" (Seq.map createMethod methodInfos))
     in
     importList + PRELUDE + 
-        "export default class " + classDeclaration.Identifier.ToString() + extendsClause
+        "export default class " + className + extendsClause
                                 + " {\n" + FIELD_LIST_HEADER + fieldList 
                                          + CONSTRUCTOR_HEADER + constructor 
                                          + ACCESSORS_HEADER + accessors 
-                                         + METHODS_HEADER + methods + "}"
+                                         + METHODS_HEADER + methods 
+                                 + "}"
                                 + POSTLUDE

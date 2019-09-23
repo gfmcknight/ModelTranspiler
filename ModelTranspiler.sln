@@ -9,7 +9,13 @@ Project("{9092AA53-FB77-4645-B42D-1CCCA6BD08BD}") = "Tests", "Tests\Tests.njspro
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "RoundTripper", "RoundTripper\RoundTripper.csproj", "{CC10784C-739A-4B2C-985A-A9A8DA948FCB}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "TestSamples", "TestSamples\TestSamples.csproj", "{5A1AF043-5C43-4CA2-90E6-2066854758DC}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "TestSamples", "TestSamples\TestSamples.csproj", "{5A1AF043-5C43-4CA2-90E6-2066854758DC}"
+EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "SampleBackend", "SampleBackend\SampleBackend.csproj", "{2AB9F2A3-4EDC-477C-A156-C481532CEBDB}"
+EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "RPCMiddleware", "RPCMiddleware\RPCMiddleware.csproj", "{459E1747-EE56-4664-A3F5-E16F7BF833B7}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "TranspilerDirectives", "TranspilerDirectives\TranspilerDirectives.csproj", "{40E1139F-4198-409A-9DDF-541F3F98D99F}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -33,6 +39,18 @@ Global
 		{5A1AF043-5C43-4CA2-90E6-2066854758DC}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{5A1AF043-5C43-4CA2-90E6-2066854758DC}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{5A1AF043-5C43-4CA2-90E6-2066854758DC}.Release|Any CPU.Build.0 = Release|Any CPU
+		{2AB9F2A3-4EDC-477C-A156-C481532CEBDB}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{2AB9F2A3-4EDC-477C-A156-C481532CEBDB}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{2AB9F2A3-4EDC-477C-A156-C481532CEBDB}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{2AB9F2A3-4EDC-477C-A156-C481532CEBDB}.Release|Any CPU.Build.0 = Release|Any CPU
+		{459E1747-EE56-4664-A3F5-E16F7BF833B7}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{459E1747-EE56-4664-A3F5-E16F7BF833B7}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{459E1747-EE56-4664-A3F5-E16F7BF833B7}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{459E1747-EE56-4664-A3F5-E16F7BF833B7}.Release|Any CPU.Build.0 = Release|Any CPU
+		{40E1139F-4198-409A-9DDF-541F3F98D99F}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{40E1139F-4198-409A-9DDF-541F3F98D99F}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{40E1139F-4198-409A-9DDF-541F3F98D99F}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{40E1139F-4198-409A-9DDF-541F3F98D99F}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

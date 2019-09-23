@@ -15,6 +15,11 @@ Set-Location ..
 # TODO: This will need to evolve
 dotnet .\ModelTranspiler\bin\Debug\netcoreapp2.1\ModelTranspiler.dll "TestSamples/" "Tests/gen/" "TestSamples.csproj"
 
+Set-Location SampleBackend
+dotnet build
+$backend = Start-Process dotnet -ArgumentList "run" -PassThru
+Set-Location ..
+
 Set-Location Tests/
 Remove-Item tests/*js*
 npm run build
@@ -24,3 +29,5 @@ Set-Location ../RoundTripper
 
 dotnet run ".."
 Set-Location ..
+
+taskkill.exe /pid $backend.Id /t /f

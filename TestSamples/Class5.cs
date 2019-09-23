@@ -1,11 +1,12 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Text;
+using TranspilerDirectives;
 
 namespace TestSamples
 {
     [Transpile]
-    class Class5
+    public class Class5
     {
         public Class2 Class2Prop { get; set; }
 

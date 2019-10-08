@@ -14,7 +14,8 @@ back/front models consistent.
 - [X] Models that hold other models
 - [X] Inheritance in models
 - [X] Transpilation of methods when exact TS code is given
-- [ ] RPC procedure for methods
-- [ ] Some sort of library for RPC binding on the server side
-- [ ] RPC support for async functions
+- [X] RPC procedure for methods
+- [X] Some sort of library for RPC binding on the server side
+- [X] RPC support for async functions
+- [ ] RPC middleware supports dependency injection of services
 - [ ] Support for lists and dictionaries

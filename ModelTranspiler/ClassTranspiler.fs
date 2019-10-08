@@ -157,7 +157,9 @@ let convertMethod (env: Env) (className: string) (declaration: MethodDeclaration
     let (parameters, paramDependencies) =
         flipZipDirection (Seq.toList (Seq.map convertParam (declaration.ParameterList.Parameters)))
 
-    let declaredReturnType = declaration.ReturnType.ToString() in
+    // Remove the Task<> from the C# type because we will never get one from
+    // the server, and just care about the type sent from the server
+    let declaredReturnType = unwrapTasks (declaration.ReturnType.ToString()) in
     let (convertedReturnType, returnDependency) = convertType declaredReturnType env in
 
     let (transpileDirective, transpileDependency) = getTranpileDirective declaration className

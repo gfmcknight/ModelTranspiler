@@ -23,7 +23,8 @@ let formatRPCTarget (className: string) (methodName: string) (returnType: string
     "\n" +
     "let result : any = await RPCHandler.handleRPCRequest(this, Array.from(arguments), '" + className + "', '" + methodName + "');\n" +
     "this._init(result.ThisObject);\n" +
-    "return " + (fromJSONObject returnType "result.ReturnValue") + ";"
+    "return " + (fromJSONObject returnType "result.ReturnValue") + ";" +
+    "\n"
 
 let transpileCode (node: SyntaxNode) (env: Env) : string =
     "throw \"NotImplemented: Transpiling\";\n"
@@ -37,7 +38,7 @@ let getTranpileDirective (node: MethodDeclarationSyntax) (className: string) : (
             RPC (
                 className,
                 node.Identifier.ToString(),
-                node.ReturnType.ToString()
+                unwrapTasks (node.ReturnType.ToString())
             ),
             rpcHandlerDependency
         )

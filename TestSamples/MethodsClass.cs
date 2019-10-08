@@ -27,5 +27,13 @@ return value;
             MyValue = value;
             return value;
         }
+
+        [TranspileRPC]
+        public async Task<int> SetValueRemoteAsync(int value)
+        {
+            MyValue = value;
+            await Task.Delay(10);
+            return MyValue;
+        }
     }
 }

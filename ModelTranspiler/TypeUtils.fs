@@ -11,9 +11,9 @@ type Env =
 type Dependencies = (string * string) list
 
 (*
-* Find an existing transpiled class and report
-* the dependency to it.
-*)
+ * Find an existing transpiled class and report
+ * the dependency to it.
+ *)
 let tryGetModelFromEnv (typeName: string) (env: Env) : (string * Dependencies) =
   let candidates = 
           List.filter (fun (_, className, _) -> className = typeName) env.classes
@@ -22,10 +22,34 @@ let tryGetModelFromEnv (typeName: string) (env: Env) : (string * Dependencies) =
      let (ns, className, _) = candidates.Head in 
          (className, [ (className, (Util.makeFilePath ns) + "/" + className) ])
 
+(* 
+ * For a given "Type<T>", returns a tuple containing (Some "Type", "T")
+ * If there is no generic 
+ *)
+let clipGenericType (typeName : string) :  string option * string =
+  let leftAnglePosition = typeName.IndexOf("<") in
+  if leftAnglePosition = -1 then (None, typeName)
+  else 
+      (Some (typeName.Substring(0, leftAnglePosition)),
+       typeName.Substring(leftAnglePosition + 1, typeName.Length - leftAnglePosition - 2))
+
 (*
-* Get the Typescript name closes to a given type
-* in C#.
-*)
+ * If we have an asynchronous method, then the return type will be wrapped in
+ * a Task<>, which will be undesirable for our transpiler.
+ *
+ * As a result we will need to convert a return type of Task<T> into just T
+ * before we know what type we're returning for RPC methods.
+ *)
+let unwrapTasks (csharpType: string) : string =
+    match clipGenericType csharpType with
+    | (Some "Task", t) -> t
+    | (None, "Task") -> "void"
+    | _ -> csharpType
+
+(*
+ * Get the Typescript name closes to a given type
+ * in C#.
+ *)
 let convertType (csharpType: string) (env: Env) : string * Dependencies =
    match csharpType with
    | "double"   -> ("number", [])
@@ -36,10 +60,10 @@ let convertType (csharpType: string) (env: Env) : string * Dependencies =
    | _ -> tryGetModelFromEnv csharpType env
 
 (*
-* Converter to help grab a certain field from
-* the JSON object which comes from the server,
-* and transform it into the correct type.
-*)
+ * Converter to help grab a certain field from
+ * the JSON object which comes from the server,
+ * and transform it into the correct type.
+ *)
 let fromJSONObject (csharpType: string) (jsonObjectAccessor: string) =
    match csharpType with
    | "DateTime" -> "new Date(" + jsonObjectAccessor + " + 'Z')"
@@ -52,9 +76,9 @@ let fromJSONObject (csharpType: string) (jsonObjectAccessor: string) =
    | _ -> "new " + csharpType + "(" + jsonObjectAccessor + ")"
 
 (*
-* Converter to help create a JSON payload to
-* send to the server.
-*)
+ * Converter to help create a JSON payload to
+ * send to the server.
+ *)
 let toJSONObject (csharpType: string) (fieldAccessor: string) =
    match csharpType with
    | "DateTime" -> fieldAccessor + ".toJSON()"

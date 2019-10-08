@@ -7,12 +7,16 @@ Set-Location ModelTranspiler
 dotnet build
 Set-Location ..
 
+Set-Location UtilTests
+dotnet build
+dotnet test
+Set-Location ..
+
 Set-Location RoundTripper
 dotnet build
 dotnet run ".." create
 Set-Location ..
 
-# TODO: This will need to evolve
 dotnet .\ModelTranspiler\bin\Debug\netcoreapp2.1\ModelTranspiler.dll "TestSamples/" "Tests/gen/" "TestSamples.csproj"
 
 Set-Location SampleBackend

@@ -1,0 +1,8 @@
+{
+  "profiles": {
+    "RoundTripper": {
+      "commandName": "Project",
+      "commandLineArgs": "../../../.."
+    }
+  }
+}

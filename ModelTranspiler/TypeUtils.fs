@@ -50,13 +50,18 @@ let unwrapTasks (csharpType: string) : string =
  * Get the Typescript name closes to a given type
  * in C#.
  *)
-let convertType (csharpType: string) (env: Env) : string * Dependencies =
-   match csharpType with
-   | "double"   -> ("number", [])
-   | "int"      -> ("number", [])
-   | "bool"     -> ("boolean", [])
-   | "DateTime" -> ("Date", [])
-   | "Guid"     -> ("string", [])
+let rec convertType (csharpType: string) (env: Env) : string * Dependencies =
+   match (clipGenericType csharpType) with
+   | (None, "double")   -> ("number", [])
+   | (None, "int")      -> ("number", [])
+   | (None, "bool")     -> ("boolean", [])
+   | (None, "DateTime") -> ("Date", [])
+   | (None, "Guid")     -> ("string", [])
+
+   | (Some "List", t)   -> 
+        let (innerConvert, innerDeps) = (convertType t env) in
+        ("Array<" + innerConvert + ">", innerDeps)
+
    | _ -> tryGetModelFromEnv csharpType env
 
 (*
@@ -64,27 +69,33 @@ let convertType (csharpType: string) (env: Env) : string * Dependencies =
  * the JSON object which comes from the server,
  * and transform it into the correct type.
  *)
-let fromJSONObject (csharpType: string) (jsonObjectAccessor: string) =
-   match csharpType with
-   | "DateTime" -> "new Date(" + jsonObjectAccessor + " + 'Z')"
-   | "double"   -> jsonObjectAccessor
-   | "int"      -> jsonObjectAccessor
-   | "bool"     -> jsonObjectAccessor
-   | "Guid"     -> jsonObjectAccessor
-   | "string"   -> jsonObjectAccessor
-   | "void"     -> "undefined"
+let rec fromJSONObject (csharpType: string) (jsonObjectAccessor: string) =
+   match (clipGenericType csharpType) with
+   | (None, "DateTime") -> "new Date(" + jsonObjectAccessor + " + 'Z')"
+   | (None, "double")   -> jsonObjectAccessor
+   | (None, "int")      -> jsonObjectAccessor
+   | (None, "bool")     -> jsonObjectAccessor
+   | (None, "Guid")     -> jsonObjectAccessor
+   | (None, "string")   -> jsonObjectAccessor
+   | (None, "void")     -> "undefined"
+
+   | (Some "List", t)   -> jsonObjectAccessor + ".map(t => " + (fromJSONObject t "t") + ")"
+
    | _ -> "new " + csharpType + "(" + jsonObjectAccessor + ")"
 
 (*
  * Converter to help create a JSON payload to
  * send to the server.
  *)
-let toJSONObject (csharpType: string) (fieldAccessor: string) =
-   match csharpType with
-   | "DateTime" -> fieldAccessor + ".toJSON()"
-   | "double"   -> fieldAccessor
-   | "int"      -> fieldAccessor
-   | "bool"     -> fieldAccessor
-   | "Guid"     -> fieldAccessor
-   | "string"   -> fieldAccessor
+let rec toJSONObject (csharpType: string) (fieldAccessor: string) =
+   match (clipGenericType csharpType) with
+   | (None, "DateTime") -> fieldAccessor + ".toJSON()"
+   | (None, "double")   -> fieldAccessor
+   | (None, "int")      -> fieldAccessor
+   | (None, "bool")     -> fieldAccessor
+   | (None, "Guid")     -> fieldAccessor
+   | (None, "string")   -> fieldAccessor
+
+   | (Some "List", t)   -> fieldAccessor + ".map(t => " + (toJSONObject t "t") + ")"
+
    | _ -> fieldAccessor + ".toJSON()"

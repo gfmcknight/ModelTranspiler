@@ -1,5 +1,6 @@
 ﻿using Newtonsoft.Json;
 using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.IO;
 using System.Reflection;
@@ -138,6 +139,20 @@ namespace RoundTripper
                     return d == (double)val2;
                 case Guid g:
                     return g == (Guid)val2;
+                case IList l1:
+                    IList l2 = val2 as IList;
+                    if (l1.Count != l2.Count)
+                    {
+                        return false;
+                    }
+                    for (int i = 0; i < l1.Count; i++)
+                    {
+                        if (!IsSameValue(l1[i], l2[i]))
+                        {
+                            return false;
+                        }
+                    }
+                    return true;
                 default:
                     return IsSame(val1, val2); // Assume we have a same object
             }

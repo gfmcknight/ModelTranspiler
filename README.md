@@ -18,4 +18,6 @@ back/front models consistent.
 - [X] Some sort of library for RPC binding on the server side
 - [X] RPC support for async functions
 - [X] RPC middleware supports dependency injection of services
-- [ ] Support for lists and dictionaries
+- [ ] Support for lists
+- [ ] Support for dictionaries
+- [ ] Partial support for JsonSubTypes(https://github.com/manuc66/JsonSubTypes)

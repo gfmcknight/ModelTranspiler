@@ -154,8 +154,16 @@ let convertMethod (env: Env) (className: string) (declaration: MethodDeclaration
         , paramDependencies
         )
     in
+    // Filter out all parameters with the [FromServices] attribute because
+    // we will use dependency injection instead
+    let filterFromServices (param: ParameterSyntax) : bool =
+        not (hasAttribute "FromServices" param.AttributeLists)
     let (parameters, paramDependencies) =
-        flipZipDirection (Seq.toList (Seq.map convertParam (declaration.ParameterList.Parameters)))
+        flipZipDirection (
+            Seq.toList (
+                Seq.map convertParam (
+                    declaration.ParameterList.Parameters
+                        |> (Seq.filter filterFromServices))))
 
     // Remove the Task<> from the C# type because we will never get one from
     // the server, and just care about the type sent from the server

@@ -28,6 +28,7 @@ namespace SampleBackend
         public void ConfigureServices(IServiceCollection services)
         {
             services.AddMvc().SetCompatibilityVersion(CompatibilityVersion.Version_2_2);
+            services.AddScoped<SampleService>();
             services.AddScoped<ArgumentMatcher>();
             services.AddScoped<ITranpiledClassesProvider, ProjectTranspiledClassesProvider>(
                 provider =>

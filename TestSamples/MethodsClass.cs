@@ -1,4 +1,5 @@
-﻿using System;
+﻿using Microsoft.AspNetCore.Mvc;
+using System;
 using System.Collections.Generic;
 using System.Text;
 using System.Threading.Tasks;
@@ -34,6 +35,13 @@ return value;
             MyValue = value;
             await Task.Delay(10);
             return MyValue;
+        }
+
+        [TranspileRPC]
+        public int SetValueDependencyInjection([FromServices] SampleService service, int value)
+        {
+            MyValue = value;
+            return MyValue + service.IntVal;
         }
     }
 }

@@ -66,7 +66,6 @@
     </TypeScriptCompile>
   </ItemGroup>
   <ItemGroup>
-    <Folder Include="integration_tests\" />
     <Folder Include="tests\" />
   </ItemGroup>
   <!-- Do not delete the following Import Project.  While this appears to do nothing it is a marker for setting TypeScript properties before our import that depends on them. -->

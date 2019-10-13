@@ -17,5 +17,5 @@ back/front models consistent.
 - [X] RPC procedure for methods
 - [X] Some sort of library for RPC binding on the server side
 - [X] RPC support for async functions
-- [ ] RPC middleware supports dependency injection of services
+- [X] RPC middleware supports dependency injection of services
 - [ ] Support for lists and dictionaries

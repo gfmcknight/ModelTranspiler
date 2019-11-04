@@ -1,4 +1,5 @@
 ﻿using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
 using System;
 using System.Collections;
 using System.Collections.Generic;
@@ -139,6 +140,9 @@ namespace RoundTripper
                     return d == (double)val2;
                 case Guid g:
                     return g == (Guid)val2;
+                case JObject j1:
+                    JObject j2 = val2 as JObject;
+                    return JToken.DeepEquals(j1, j2);
                 case IList l1:
                     IList l2 = val2 as IList;
                     if (l1.Count != l2.Count)

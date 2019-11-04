@@ -1,4 +1,5 @@
-﻿using System;
+﻿using Newtonsoft.Json.Linq;
+using System;
 using System.Collections.Generic;
 using System.Text;
 using TranspilerDirectives;
@@ -15,6 +16,8 @@ namespace TestSamples
         public DateTime DateTimeProperty { get; set; }
         public double DoubleProperty { get; set; }
 
+        public JObject JsonObjectProperty { get; set; }
+
         public static object DefaultValue()
         {
             return new AllValueTypesClass
@@ -24,7 +27,13 @@ namespace TestSamples
                 StringProperty = "test",
                 GuidProperty = Guid.Parse("8bd30961-c052-457f-b78e-dcd64f50c277"),
                 DateTimeProperty = new DateTime(2019, 6, 26, 11, 11, 11),
-                DoubleProperty = 333.7
+                DoubleProperty = 333.7,
+                JsonObjectProperty = new JObject
+                {
+                    { "IntVal", 5 },
+                    { "StringVal", "Hello, world" },
+                    { "ArrayVal", new JArray(3, 4, 5) }
+                }
             };
         }
     }

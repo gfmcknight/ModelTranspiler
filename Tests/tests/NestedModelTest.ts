@@ -1,6 +1,7 @@
 ﻿import assert = require('assert');
 import Class4 from '../gen/TestSamples/Class4';
 import Class5 from '../gen/TestSamples/Class5';
+import AllListFieldsClass from '../gen/TestSamples/AllListFieldsClass';
 
 describe("Test Nested Models", () => {
     it("Test Simple Property", () => {
@@ -12,5 +13,17 @@ describe("Test Nested Models", () => {
     it("Test Model-Specific Property", () => {
         var obj = new Class5({ Class2Prop: { differentNumberName: 2 } });
         assert.equal(obj.Class2Prop.MyNumber, 2);
+    });
+
+    it("Test Model List", () => {
+        var obj = new AllListFieldsClass({
+            "ModelListProperty": [
+                { "differentNumberName": 3 },
+                { "differentNumberName": 6 }
+            ]
+        });
+
+        assert.equal(obj.ModelListProperty[0].MyNumber, 3);
+        assert.equal(obj.ModelListProperty[1].MyNumber, 6);
     });
 });

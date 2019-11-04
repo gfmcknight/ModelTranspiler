@@ -14,8 +14,8 @@ namespace TestSamples
         public List<Guid> GuidListProperty { get; set; }
         public List<DateTime> DateTimeListProperty { get; set; }
         public List<double> DoubleListProperty { get; set; }
-
         public List<List<int>> NestedListProperty { get; set; }
+        public List<Class2> ModelListProperty { get; set; }
 
         public static object DefaultValue()
         {
@@ -35,8 +35,12 @@ namespace TestSamples
                 {
                     new List<int>(new int[] {1, 2}),
                     new List<int>(new int[] {3, 4})
-                })
-
+                }),
+                ModelListProperty = new List<Class2>
+                {
+                    new Class2 { MyNumber = 3 },
+                    new Class2 { MyNumber = 9 }
+                }
             };
         }
     }

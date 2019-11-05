@@ -1,6 +1,7 @@
 ﻿module TypeUtils
 
 open Microsoft.CodeAnalysis.CSharp.Syntax
+open System.Linq
 
 (* 
  * Classes: namespace * class name * Tree
@@ -63,7 +64,32 @@ let rec convertType (csharpType: string) (env: Env) : string * Dependencies =
         let (innerConvert, innerDeps) = (convertType t env) in
         ("Array<" + innerConvert + ">", innerDeps)
 
+   | (Some "Dictionary", t) ->
+        let mapTypes = List.map (fun (s: string) -> s.Trim()) 
+                                    (t.Split(',') |> Array.toList) in
+        let (keyType, keyDeps) = (convertType (mapTypes.Item(0)) env) in
+        let (valueType, valueDeps) = (convertType (mapTypes.Item(1)) env) in
+        ("Record<" + keyType + ", " + valueType + ">", keyDeps @ valueDeps)
+
    | _ -> tryGetModelFromEnv csharpType env
+
+(*
+ * Helper to the below two conversions that applies a
+ * conversion along all keys and values of an object
+ *
+ * elementConverter's intended args are the following:
+ * type -> accessor -> resulting expression
+ *)
+let translateBetweenMapTypes (typePairExpression: string) (accessor: string)
+       (elementConverter: string -> string -> string) =
+       let mapTypes = List.map (fun (s: string) -> s.Trim()) 
+                                   (typePairExpression.Split(',') |> Array.toList) 
+       in
+       accessor + " ? [{}].concat(Object.entries(" + accessor + 
+           ").map(kv => [" + 
+               (elementConverter (mapTypes.Item(0)) "kv[0]") + ", " +
+               (elementConverter (mapTypes.Item(1)) "kv[1]") + 
+               "])).reduce((acc, kv) => { acc[kv[0]] = kv[1]; return acc; }) : null" 
 
 (*
  * Converter to help grab a certain field from
@@ -82,6 +108,7 @@ let rec fromJSONObject (csharpType: string) (jsonObjectAccessor: string) =
    | (None, "void")     -> "undefined"
 
    | (Some "List", t)   -> jsonObjectAccessor + ".map(t => " + (fromJSONObject t "t") + ")"
+   | (Some "Dictionary", t) -> translateBetweenMapTypes t jsonObjectAccessor fromJSONObject
 
    | _ -> "new " + csharpType + "(" + jsonObjectAccessor + ")"
 
@@ -97,8 +124,9 @@ let rec toJSONObject (csharpType: string) (fieldAccessor: string) =
    | (None, "bool")     -> fieldAccessor
    | (None, "Guid")     -> fieldAccessor
    | (None, "string")   -> fieldAccessor
-   | (None, "JObject")   -> fieldAccessor
+   | (None, "JObject")  -> fieldAccessor
 
    | (Some "List", t)   -> fieldAccessor + ".map(t => " + (toJSONObject t "t") + ")"
+   | (Some "Dictionary", t) -> translateBetweenMapTypes t fieldAccessor toJSONObject
 
    | _ -> fieldAccessor + ".toJSON()"

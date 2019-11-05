@@ -4,3 +4,4 @@ TestSamples.Class4
 TestSamples.Class5
 TestSamples.Class6
 TestSamples.AllListFieldsClass
+TestSamples.MapFieldsClass

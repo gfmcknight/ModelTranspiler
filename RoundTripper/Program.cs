@@ -143,6 +143,20 @@ namespace RoundTripper
                 case JObject j1:
                     JObject j2 = val2 as JObject;
                     return JToken.DeepEquals(j1, j2);
+                case IDictionary d1:
+                    IDictionary d2 = val2 as IDictionary;
+                    if (d1.Count != d2.Count)
+                    {
+                        return false;
+                    }
+                    foreach (object key in d1.Keys)
+                    {
+                        if (!d2.Contains(key) || !IsSameValue(d1[key], d2[key]))
+                        {
+                            return false;
+                        }
+                    }
+                    return true;
                 case IList l1:
                     IList l2 = val2 as IList;
                     if (l1.Count != l2.Count)

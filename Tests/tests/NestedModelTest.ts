@@ -2,6 +2,7 @@
 import Class4 from '../gen/TestSamples/Class4';
 import Class5 from '../gen/TestSamples/Class5';
 import AllListFieldsClass from '../gen/TestSamples/AllListFieldsClass';
+import MapFieldsClass from '../gen/TestSamples/MapFieldsClass';
 
 describe("Test Nested Models", () => {
     it("Test Simple Property", () => {
@@ -25,5 +26,15 @@ describe("Test Nested Models", () => {
 
         assert.equal(obj.ModelListProperty[0].MyNumber, 3);
         assert.equal(obj.ModelListProperty[1].MyNumber, 6);
+    });
+
+    it("Test Model Dictionary", () => {
+        var obj = new MapFieldsClass({
+            StringToModel: {
+                "myobj": { "differentNumberName": 14 }
+            }
+        });
+
+        assert.equal(obj.StringToModel["myobj"].MyNumber, 14);
     });
 });

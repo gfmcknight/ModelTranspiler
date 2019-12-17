@@ -342,7 +342,8 @@ let createImports (genDirectory: string) (currentNS: string) (dependencies: Depe
     let currentDir = genDirectory + makeFilePath currentNS in
     let dedupedDependencies = List.distinctBy (fun (dep: string, _) -> dep) dependencies in
     let imports = List.map (fun (dep: string, fullpath: string) -> 
-                            "import " + dep + " from '" + (relativePath currentDir (genDirectory + fullpath)) + "';\n") dedupedDependencies
+                            "import { " + dep + " } from '" + (relativePath currentDir (genDirectory + "internal")) + "';\n")
+                            dedupedDependencies
     in List.fold (+) "" imports
 
 
@@ -387,8 +388,8 @@ let createStaticDiscriminator (subtypes: SubtypeFieldInfo option)
  *)
 let convertClass (env: Env) (genDirectory: string) (ns: string) (classDeclaration : ClassDeclarationSyntax) =
     let className = classDeclaration.Identifier.ToString()
-    let baseClassInfo = match classDeclaration.BaseList with 
-                        | null -> None 
+    let baseClassInfo = match classDeclaration.BaseList with
+                        | null -> None
                         | _    -> Some (tryGetModelFromEnv (classDeclaration.BaseList.GetFirstToken().GetNextToken().ToString()) env)
     let (baseClassName: string option, baseClassDependencies : Dependencies) =
                                             match baseClassInfo with

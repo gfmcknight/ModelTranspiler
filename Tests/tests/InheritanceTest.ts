@@ -25,7 +25,7 @@ describe("Inheritance Tests", () => {
             SubTypeBIntField: 6
         });
 
-        assert.equal(typeof(obj), "SubTypeA");
+        assert.ok(obj instanceof SubTypeA);
         assert.equal(obj["SubTypeAStringField"], "Hello");
         assert.equal(obj["SubTypeBIntField"], undefined);
 
@@ -36,7 +36,7 @@ describe("Inheritance Tests", () => {
             SubTypeBIntField: 6
         });
 
-        assert.equal(typeof(obj), "SubTypeB");
+        assert.ok(obj instanceof SubTypeB);
         assert.equal(obj["SubTypeAStringField"], undefined);
         assert.equal(obj["SubTypeBIntField"], 6);
     });
@@ -49,7 +49,7 @@ describe("Inheritance Tests", () => {
             SubTypeBIntField: 6
         });
 
-        assert.equal(typeof(obj), "BaseType");
+        assert.ok(obj instanceof BaseType);
         assert.equal(obj["SubTypeAStringField"], undefined);
         assert.equal(obj["SubTypeBIntField"], undefined);
     });

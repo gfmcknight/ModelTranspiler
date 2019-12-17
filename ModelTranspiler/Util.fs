@@ -22,11 +22,16 @@ let hasAttribute (name : string) (attributes: SyntaxList<AttributeListSyntax>) =
                  (getAllAttributes attributes)
 
 let getAttribute (name: string) (attributes: SyntaxList<AttributeListSyntax>) =
-    Seq.find (fun (attributeNode: AttributeSyntax) -> (attributeNode.Name.ToString()) = name) 
+    Seq.find (fun (attributeNode: AttributeSyntax) -> (attributeNode.Name.ToString()) = name)
                 (getAllAttributes attributes)
 
 let argFromAttribute (arg: int) (attribute: AttributeSyntax) =
     (attribute.ArgumentList.Arguments.Item arg).Expression
+
+let removeTypeOf (str: string) =
+    let firstParen = str.IndexOf('(') in
+    let lastParen = str.LastIndexOf(')') in
+    str.Substring(firstParen + 1, lastParen - firstParen - 1)
 
 let removeQuotes (str: string) =
     let firstQuote = str.IndexOf('"') in

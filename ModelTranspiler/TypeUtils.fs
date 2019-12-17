@@ -19,8 +19,8 @@ let tryGetModelFromEnv (typeName: string) (env: Env) : (string * Dependencies) =
   let candidates = 
           List.filter (fun (_, className, _) -> className = typeName) env.classes
   in 
-  if (candidates.IsEmpty) then (typeName, []) else 
-     let (ns, className, _) = candidates.Head in 
+  if (candidates.IsEmpty) then (typeName, []) else
+     let (ns, className, _) = candidates.Head in
          (className, [ (className, (Util.makeFilePath ns) + "/" + className) ])
 
 (* 

@@ -49,7 +49,6 @@ let makeEnv (trees : seq<SyntaxTree>) : Env =
     }
 
 let makeInternalModule (genDirectory: string) (env: Env) =
-
     let rec sources (remaining : ClassInfo list) (all : ClassInfo list) : ClassInfo list * ClassInfo list  =
         match remaining with
         | [] -> ([], [])
@@ -69,6 +68,7 @@ let makeInternalModule (genDirectory: string) (env: Env) =
                     (sortByDeps nonSourceList) @ sourceList
 
     let internalModuleImports =
+        "import RPCHandler from '../RPCHandler';\n" +
         Seq.fold (+) ""
             (Seq.map
                 (fun (cls: ClassInfo) ->
@@ -81,7 +81,9 @@ let makeInternalModule (genDirectory: string) (env: Env) =
                 (Seq.map
                     (fun (cls: ClassInfo) -> cls.name)
                 env.classes)
-            ) + " };\n"
+            ) +
+            ", RPCHandler" +
+            " };\n"
     in File.WriteAllText(genDirectory + "internal.ts", internalModuleImports + exports); "import.js"
 
 let makeDirectoriesFromEnv (newpath : string) (env : Env) : seq<DirectoryInfo> =
@@ -89,8 +91,7 @@ let makeDirectoriesFromEnv (newpath : string) (env : Env) : seq<DirectoryInfo> =
     let createDir = (fun (path : string) -> (Directory.CreateDirectory(newpath + "/" + path))) in
     Seq.map (pathFromClassInfo >> createDir) env.classes
 
-
-let transpileProject (path : string) (newpath : string) (projName : string) = 
+let transpileProject (path : string) (newpath : string) (projName : string) =
     let workspace = MSBuildWorkspace.Create() in
     workspace.WorkspaceFailed.Add(fun (args : WorkspaceDiagnosticEventArgs) -> Console.WriteLine(args.Diagnostic.Message) );
 

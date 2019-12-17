@@ -3,11 +3,18 @@
 open Microsoft.CodeAnalysis.CSharp.Syntax
 open System.Linq
 
-(* 
+type ClassInfo =
+      { ns       : string
+      ; name     : string
+      ; tree     : ClassDeclarationSyntax
+      ; baseType : string option
+      }
+
+(*
  * Classes: namespace * class name * Tree
  *)
 type Env =
-   { classes : (string * string * ClassDeclarationSyntax) list }
+   { classes : ClassInfo list }
 
 type Dependencies = (string * string) list
 
@@ -17,11 +24,11 @@ type Dependencies = (string * string) list
  *)
 let tryGetModelFromEnv (typeName: string) (env: Env) : (string * Dependencies) =
   let candidates = 
-          List.filter (fun (_, className, _) -> className = typeName) env.classes
+          List.filter (fun (classInfo : ClassInfo) -> classInfo.name = typeName) env.classes
   in 
-  if (candidates.IsEmpty) then (typeName, []) else 
-     let (ns, className, _) = candidates.Head in 
-         (className, [ (className, (Util.makeFilePath ns) + "/" + className) ])
+  if (candidates.IsEmpty) then (typeName, []) else
+     let head = candidates.Head in
+         (head.name, [ (head.name, (Util.makeFilePath head.ns) + "/" + head.name) ])
 
 (* 
  * For a given "Type<T>", returns a tuple containing (Some "Type", "T")

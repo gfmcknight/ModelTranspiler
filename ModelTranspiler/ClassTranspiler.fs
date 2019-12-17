@@ -22,28 +22,40 @@ let CONSTRUCTOR_HEADER = "\n/** AUTO-GENERATED CONSTRUCTOR **/\n\n"
 let ACCESSORS_HEADER = "\n/** AUTO-GENERATED GETTERS AND SETTERS **/\n\n"
 let METHODS_HEADER = "\n/** AUTO-GENERATED METHODS **/\n\n"
 
-type Property = 
+type Property =
         { get           : PropertyAccess option
         ; set           : PropertyAccess option
         ; jsonName      : string
         ; declaredName  : string
         ; declaredType  : string
         ; convertedType : string
+        ; isOverride    : bool
         }
 
 type ParamInfo =
-        { name : string
-        ; declaredType : string
+        { name          : string
+        ; declaredType  : string
         ; convertedType : string
         }
 
 type MethodInfo =
-        { parameters : ParamInfo list
-        ; name : string
-        ; transpileDirective : Coded
-        ; declaredReturnType: string
-        ; convertedReturnType: string
+        { parameters          : ParamInfo list
+        ; name                : string
+        ; transpileDirective  : Coded
+        ; declaredReturnType  : string
+        ; convertedReturnType : string
         }
+
+type SubtypeInfo =
+        { subtype : string
+        ; value   : string
+        }
+
+type SubtypeFieldInfo =
+        { discriminatingField : string
+        ; subtypes            : SubtypeInfo list
+        }
+
 
 (**************************************
   Reading features
@@ -58,14 +70,14 @@ type MethodInfo =
  * but will be needed later, so the return value is a tuple (type, accessor)
  * where the type distinguishes get/set and the accessor 
  *)
-let convertAccessor (accessor: AccessorDeclarationSyntax) : (AccessType * PropertyAccess) = 
+let convertAccessor (accessor: AccessorDeclarationSyntax) : (AccessType * PropertyAccess) =
     let accessType : AccessType = match (accessor.Keyword.ToString()) with
                                          | "get" -> Get
                                          | "set" -> Set
                                          | x -> raise (Exception("Invalid accessType keyword " + x))
     in
-    if (accessor.Body = null)
-    then (accessType, Simple) 
+    if (isNull accessor.Body)
+    then (accessType, Simple)
     else raise (NotImplementedException("Not implemented: complex accessors"))
 
 (*
@@ -75,6 +87,7 @@ let convertAccessor (accessor: AccessorDeclarationSyntax) : (AccessType * Proper
  *)
 let convertProperty (env: Env) (declaration: PropertyDeclarationSyntax) : Property * Dependencies =
     let declaredType = declaration.Type.ToString() in
+    let isOverride = declaration.Modifiers.ToString().Contains("override")
     let (convertedType, dependencies) = convertType declaredType env in
     let declaredName = declaration.Identifier.ToString() in
 
@@ -119,7 +132,8 @@ let convertProperty (env: Env) (declaration: PropertyDeclarationSyntax) : Proper
     ; jsonName = jsonName
     ; declaredName = declaredName
     ; declaredType = declaredType
-    ; convertedType = convertedType 
+    ; convertedType = convertedType
+    ; isOverride = isOverride
     },
     dependencies)
 
@@ -186,18 +200,72 @@ let convertMethod (env: Env) (className: string) (declaration: MethodDeclaration
 let collectMethods (env: Env) (declarations: seq<MethodDeclarationSyntax>) (className: string): seq<MethodInfo * Dependencies> =
     let filteredDeclarations =
         (Seq.filter
-            (fun (d : MethodDeclarationSyntax) -> match (getTranpileDirective d className) with (Ignored, _) -> false | _ -> true)
+            (fun (d : MethodDeclarationSyntax) -> 
+                match (getTranpileDirective d className) with (Ignored, _) -> false | _ -> true)
         declarations) in
      Seq.map (convertMethod env className) filteredDeclarations
+
+(*
+ * Look at the attributes attached to the class in order to
+ * determine what subtypes might be associated with it via
+ * explicit JSONSubtype KnownSubtype annotations. The format
+ * supported here is very strict here and must follow this
+ * format exactly:
+ *
+ * [JsonConverter(typeof(JsonSubtypes), "SubTypeADiscriminatingField")]
+ * [KnownSubType(typeof(SubASubTypeA), 1)]
+ * [KnownSubType(typeof(SubASubTypeA), 2)]
+ *)
+let collectSubtypes (env: Env) (classDeclaration: ClassDeclarationSyntax) : (SubtypeFieldInfo option * Dependencies list)  =
+    let attributeList = classDeclaration.AttributeLists
+    if hasAttribute "JsonConverter" attributeList &&
+        (getAttribute "JsonConverter" attributeList
+            |> argFromAttribute 0
+            |> fun (e: ExpressionSyntax) -> e.ToString()
+            |> removeTypeOf
+            |> fun (s: string) -> s.StartsWith("JsonSubtypes"))
+    then
+        let attributes =
+            Seq.filter
+                (fun (att: AttributeSyntax) -> att.Name.ToString() = "KnownSubType")
+                (getAllAttributes attributeList)
+        in
+        let subtypes = Seq.map
+                        (fun (att: AttributeSyntax) ->
+                                { subtype = removeTypeOf ((argFromAttribute 0 att).ToString())
+                                ; value = (argFromAttribute 1 att).ToString()
+                                })
+                        attributes
+        in
+        let discriminatingField =
+            getAttribute "JsonConverter" attributeList
+                |> argFromAttribute 1
+                |> fun (e: ExpressionSyntax) -> e.ToString()
+                |> removeQuotes
+        in
+        let dependencies = Seq.toList (Seq.map
+                            (fun subtype ->
+                                let _, dep = tryGetModelFromEnv (subtype.subtype) env
+                                in dep)
+            subtypes)
+        in
+        (Some { discriminatingField = discriminatingField
+             ; subtypes = Seq.toList subtypes
+             }, dependencies)
+    else (None, [])
 
 (**************************************
   Code Generation
 ***************************************)
 
 let createFieldList (properties : seq<Property>) : string =
-    let createFieldString (property: Property) = 
-            sprintf "private _%s : %s;\n" property.declaredName property.convertedType in
-    let fieldStrings = Seq.map createFieldString properties in
+    let createFieldString (property: Property) =
+            sprintf "protected _%s : %s;\n" property.declaredName property.convertedType in
+    // We don't want to output the fields that we are overriding, but we may
+    // want to use some of the information (i.e. default values) for generating
+    // other parts of the model
+    let fieldStrings = Seq.map createFieldString
+                        (Seq.filter (fun prop -> not prop.isOverride) properties) in
     Seq.fold (+) "" fieldStrings
 
 let createAccessors (properties : seq<Property>) =
@@ -274,7 +342,8 @@ let createImports (genDirectory: string) (currentNS: string) (dependencies: Depe
     let currentDir = genDirectory + makeFilePath currentNS in
     let dedupedDependencies = List.distinctBy (fun (dep: string, _) -> dep) dependencies in
     let imports = List.map (fun (dep: string, fullpath: string) -> 
-                            "import " + dep + " from '" + (relativePath currentDir (genDirectory + fullpath)) + "';\n") dedupedDependencies
+                            "import { " + dep + " } from '" + (relativePath currentDir (genDirectory + "internal")) + "';\n")
+                            dedupedDependencies
     in List.fold (+) "" imports
 
 
@@ -289,17 +358,41 @@ let createMethod (info: MethodInfo) : string =
     + (transpile info.transpileDirective)
     + "}\n"
 
+let createStaticDiscriminator (subtypes: SubtypeFieldInfo option)
+        (className: string) (properties: Property list) : string =
+    "static fromJSON(payload) : " + className + " {\n" +
+    (match subtypes with
+        | None -> "return new " + className + "(payload);\n"
+        | Some subtypes ->
+            let cases =
+                List.map
+                    (fun (subtype: SubtypeInfo) ->
+                        "case " + subtype.value + ":\n" +
+                        "return " + subtype.subtype + ".fromJSON(payload);\n")
+                    subtypes.subtypes
+            in
+            let discriminator = Seq.find
+                                    (fun (prop: Property) -> prop.declaredName = subtypes.discriminatingField)
+                                    properties
+            in
+            "switch (payload." + discriminator.jsonName + ") {\n" +
+            List.fold (+) "" cases +
+            "default:\n" +
+            "return new " + className + "(payload);\n" +
+            "}\n") +
+    "}\n"
+
 (*
  * Reads a class declaration and transpiles it to a TypeScript
  * class.
  *)
-let convertClass (env: Env) (genDirectory: string) (ns: string) (classDeclaration : ClassDeclarationSyntax) = 
+let convertClass (env: Env) (genDirectory: string) (ns: string) (classDeclaration : ClassDeclarationSyntax) =
     let className = classDeclaration.Identifier.ToString()
-    let baseClassInfo = match classDeclaration.BaseList with 
-                        | null -> None 
+    let baseClassInfo = match classDeclaration.BaseList with
+                        | null -> None
                         | _    -> Some (tryGetModelFromEnv (classDeclaration.BaseList.GetFirstToken().GetNextToken().ToString()) env)
     let (baseClassName: string option, baseClassDependencies : Dependencies) =
-                                            match baseClassInfo with 
+                                            match baseClassInfo with
                                                | None -> (None, []) 
                                                | Some (name, dependencyList) -> ((Some name), dependencyList)
 
@@ -317,7 +410,15 @@ let convertClass (env: Env) (genDirectory: string) (ns: string) (classDeclaratio
     let (methodInfos, methodDependencies) =
         flipZipDirection (Seq.toList (collectMethods env methodSyntax className))
 
-    let dependencies = List.concat (baseClassDependencies :: propertyDependeciesLists @ methodDependencies) in
+    let (subtypeInfo, subtypeDependencies) =
+        collectSubtypes env classDeclaration
+
+    let dependencies = List.concat
+                        (baseClassDependencies ::
+                         propertyDependeciesLists @
+                         methodDependencies @
+                         subtypeDependencies)
+    in
 
     let importList = createImports genDirectory ns dependencies
     let extendsClause = match baseClassName with
@@ -328,13 +429,14 @@ let convertClass (env: Env) (genDirectory: string) (ns: string) (classDeclaratio
     let accessors = createAccessors properties in
     let methods = (createInit properties baseClassName) +
                   (createToJSON properties baseClassName) +
-                  (Seq.fold (+) "" (Seq.map createMethod methodInfos))
+                  (Seq.fold (+) "" (Seq.map createMethod methodInfos)) +
+                  (createStaticDiscriminator subtypeInfo className properties)
     in
-    importList + PRELUDE + 
+    importList + PRELUDE +
         "export default class " + className + extendsClause
-                                + " {\n" + FIELD_LIST_HEADER + fieldList 
-                                         + CONSTRUCTOR_HEADER + constructor 
-                                         + ACCESSORS_HEADER + accessors 
-                                         + METHODS_HEADER + methods 
+                                + " {\n" + FIELD_LIST_HEADER + fieldList
+                                         + CONSTRUCTOR_HEADER + constructor
+                                         + ACCESSORS_HEADER + accessors
+                                         + METHODS_HEADER + methods
                                  + "}"
                                 + POSTLUDE

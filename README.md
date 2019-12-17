@@ -1,5 +1,5 @@
-# Model Transpiler
-This project is meant to a transpiler which converts C#
+# ModelGen
+This project is meant to a binding generator which converts C#
 classes to TypeScript classes in order to make maintaining
 back/front models consistent.
 

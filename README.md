@@ -20,4 +20,4 @@ back/front models consistent.
 - [X] RPC middleware supports dependency injection of services
 - [X] Support for lists
 - [X] Support for dictionaries
-- [ ] Partial support for JsonSubTypes(https://github.com/manuc66/JsonSubTypes)
+- [X] Partial support for JsonSubTypes(https://github.com/manuc66/JsonSubTypes)

@@ -62,6 +62,7 @@ let rec convertType (csharpType: string) (env: Env) : string * Dependencies =
    match (clipGenericType csharpType) with
    | (None, "double")   -> ("number", [])
    | (None, "int")      -> ("number", [])
+   | (None, "long")     -> ("number", [])
    | (None, "bool")     -> ("boolean", [])
    | (None, "DateTime") -> ("Date", [])
    | (None, "Guid")     -> ("string", [])
@@ -108,6 +109,7 @@ let rec fromJSONObject (csharpType: string) (jsonObjectAccessor: string) =
    | (None, "DateTime") -> "new Date(" + jsonObjectAccessor + " + 'Z')"
    | (None, "double")   -> jsonObjectAccessor
    | (None, "int")      -> jsonObjectAccessor
+   | (None, "long")     -> jsonObjectAccessor
    | (None, "bool")     -> jsonObjectAccessor
    | (None, "Guid")     -> jsonObjectAccessor
    | (None, "string")   -> jsonObjectAccessor
@@ -128,6 +130,7 @@ let rec toJSONObject (csharpType: string) (fieldAccessor: string) =
    | (None, "DateTime") -> fieldAccessor + ".toJSON()"
    | (None, "double")   -> fieldAccessor
    | (None, "int")      -> fieldAccessor
+   | (None, "long")      -> fieldAccessor
    | (None, "bool")     -> fieldAccessor
    | (None, "Guid")     -> fieldAccessor
    | (None, "string")   -> fieldAccessor

@@ -15,6 +15,7 @@ namespace TestSamples
         public Guid GuidProperty { get; set; }
         public DateTime DateTimeProperty { get; set; }
         public double DoubleProperty { get; set; }
+        public long LongProperty { get; set; }
 
         public JObject JsonObjectProperty { get; set; }
 
@@ -28,6 +29,7 @@ namespace TestSamples
                 GuidProperty = Guid.Parse("8bd30961-c052-457f-b78e-dcd64f50c277"),
                 DateTimeProperty = new DateTime(2019, 6, 26, 11, 11, 11),
                 DoubleProperty = 333.7,
+                LongProperty = 24449929900,
                 JsonObjectProperty = new JObject
                 {
                     { "IntVal", 5 },

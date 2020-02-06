@@ -10,25 +10,45 @@ type ClassInfo =
       ; baseType : string option
       }
 
+type EnumInfo =
+      { ns   : string
+      ; name : string
+      ; tree : EnumDeclarationSyntax
+      }
+
 (*
  * Classes: namespace * class name * Tree
  *)
 type Env =
-   { classes : ClassInfo list }
+   { classes : ClassInfo list
+   ; enums   : EnumInfo list
+   }
 
 type Dependencies = (string * string) list
 
 (*
  * Find an existing transpiled class and report
  * the dependency to it.
+ * Return format: name of class, list of dependencies for it, isClass
  *)
-let tryGetModelFromEnv (typeName: string) (env: Env) : (string * Dependencies) =
-  let candidates = 
+let tryGetModelFromEnv (typeName: string) (env: Env) : (string * Dependencies * bool) =
+  let candidates =
           List.filter (fun (classInfo : ClassInfo) -> classInfo.name = typeName) env.classes
-  in 
-  if (candidates.IsEmpty) then (typeName, []) else
+  in
+  if (candidates.IsEmpty)
+
+  then let enumCandidates =
+               List.filter (fun (enumInfo : EnumInfo) -> enumInfo.name = typeName) env.enums
+       in (
+          if (enumCandidates.IsEmpty)
+          then (typeName, [], true)
+          else let head = enumCandidates.Head in
+               (head.name, [ (head.name, (Util.makeFilePath head.ns) + "/" + head.name) ], false)
+       )
+
+  else
      let head = candidates.Head in
-         (head.name, [ (head.name, (Util.makeFilePath head.ns) + "/" + head.name) ])
+         (head.name, [ (head.name, (Util.makeFilePath head.ns) + "/" + head.name) ], true)
 
 (* 
  * For a given "Type<T>", returns a tuple containing (Some "Type", "T")
@@ -79,7 +99,7 @@ let rec convertType (csharpType: string) (env: Env) : string * Dependencies =
         let (valueType, valueDeps) = (convertType (mapTypes.Item(1)) env) in
         ("Record<" + keyType + ", " + valueType + ">", keyDeps @ valueDeps)
 
-   | _ -> tryGetModelFromEnv csharpType env
+   | _ -> let (name, deps, _) = tryGetModelFromEnv csharpType env in (name, deps)
 
 (*
  * Helper to the below two conversions that applies a
@@ -104,7 +124,7 @@ let translateBetweenMapTypes (typePairExpression: string) (accessor: string)
  * the JSON object which comes from the server,
  * and transform it into the correct type.
  *)
-let rec fromJSONObject (csharpType: string) (jsonObjectAccessor: string) =
+let rec fromJSONObject (env: Env) (csharpType: string) (jsonObjectAccessor: string) =
    match (clipGenericType csharpType) with
    | (None, "DateTime") -> "new Date(" + jsonObjectAccessor + " + 'Z')"
    | (None, "double")   -> jsonObjectAccessor
@@ -116,16 +136,21 @@ let rec fromJSONObject (csharpType: string) (jsonObjectAccessor: string) =
    | (None, "JObject")   -> jsonObjectAccessor
    | (None, "void")     -> "undefined"
 
-   | (Some "List", t)   -> jsonObjectAccessor + ".map(t => " + (fromJSONObject t "t") + ")"
-   | (Some "Dictionary", t) -> translateBetweenMapTypes t jsonObjectAccessor fromJSONObject
+   | (Some "List", t)   -> jsonObjectAccessor + ".map(t => " + (fromJSONObject env t "t") + ")"
+   | (Some "Dictionary", t) -> translateBetweenMapTypes t jsonObjectAccessor (fromJSONObject env)
 
-   | _ -> "new " + csharpType + "(" + jsonObjectAccessor + ")"
+   | _ -> let (_, _, isClass) = tryGetModelFromEnv csharpType env
+          in match isClass with
+               | true -> "new " + csharpType + "(" + jsonObjectAccessor + ")"
+               | false -> jsonObjectAccessor
+
+
 
 (*
  * Converter to help create a JSON payload to
  * send to the server.
  *)
-let rec toJSONObject (csharpType: string) (fieldAccessor: string) =
+let rec toJSONObject (env: Env) (csharpType: string) (fieldAccessor: string) =
    match (clipGenericType csharpType) with
    | (None, "DateTime") -> fieldAccessor + ".toJSON()"
    | (None, "double")   -> fieldAccessor
@@ -136,7 +161,10 @@ let rec toJSONObject (csharpType: string) (fieldAccessor: string) =
    | (None, "string")   -> fieldAccessor
    | (None, "JObject")  -> fieldAccessor
 
-   | (Some "List", t)   -> fieldAccessor + ".map(t => " + (toJSONObject t "t") + ")"
-   | (Some "Dictionary", t) -> translateBetweenMapTypes t fieldAccessor toJSONObject
+   | (Some "List", t)   -> fieldAccessor + ".map(t => " + (toJSONObject env t "t") + ")"
+   | (Some "Dictionary", t) -> translateBetweenMapTypes t fieldAccessor (toJSONObject env)
 
-   | _ -> fieldAccessor + ".toJSON()"
+   | _ -> let (_, _, isClass) = tryGetModelFromEnv csharpType env
+          in match isClass with
+               | true -> fieldAccessor + ".toJSON()"
+               | false -> fieldAccessor

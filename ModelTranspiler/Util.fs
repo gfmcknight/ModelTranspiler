@@ -66,3 +66,6 @@ let flipZipDirection<'T, 'R> (sequence : ('T * 'R) list) : ('T list * 'R list) =
 
 let commaSeparatedList (items: seq<string>) : string =
     Seq.fold (fun (acc:string) (elem:string) -> match acc with "" -> elem | _ -> acc + ", " + elem)  "" items
+
+let commaSeparatedLineList (items: seq<string>) : string =
+    Seq.fold (fun (acc:string) (elem:string) -> match acc with "" -> elem | _ -> acc + ",\n" + elem)  "" items

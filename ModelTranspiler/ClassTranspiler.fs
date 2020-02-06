@@ -57,6 +57,12 @@ type SubtypeFieldInfo =
         }
 
 
+let getDeclaredType (typename: string) (attributes: SyntaxList<AttributeListSyntax>) =
+    if (hasAttribute "TranspiledType" attributes)
+            then removeQuotes (
+                    (argFromAttribute 0
+                        (getAttribute "TranspiledType" attributes)).ToString())
+            else typename
 (**************************************
   Reading features
 ***************************************)
@@ -86,7 +92,7 @@ let convertAccessor (accessor: AccessorDeclarationSyntax) : (AccessType * Proper
  * walk the tree in order to discover.
  *)
 let convertProperty (env: Env) (declaration: PropertyDeclarationSyntax) : Property * Dependencies =
-    let declaredType = declaration.Type.ToString() in
+    let declaredType = getDeclaredType (declaration.Type.ToString()) declaration.AttributeLists in
     let isOverride = declaration.Modifiers.ToString().Contains("override")
     let (convertedType, dependencies) = convertType declaredType env in
     let declaredName = declaration.Identifier.ToString() in
@@ -103,7 +109,7 @@ let convertProperty (env: Env) (declaration: PropertyDeclarationSyntax) : Proper
     in
 
     // Get all of the accessor declarations which are not private
-    // by exploring all children of the property node. 
+    // by exploring all children of the property node.
     let accessors = Seq.filter (fun (a: AccessorDeclarationSyntax) -> not (a.Modifiers.ToString().Contains("private")))
                         (Seq.cast<AccessorDeclarationSyntax> 
                             (Seq.filter (fun i -> TypeExtensions.IsInstanceOfType(typeof<AccessorDeclarationSyntax>, i))
@@ -158,7 +164,7 @@ let convertMethod (env: Env) (className: string) (declaration: MethodDeclaration
      *)
     let convertParam (param : ParameterSyntax) : ParamInfo * Dependencies =
         let paramName = param.Identifier.ToString() in
-        let declaredType = param.Type.ToString() in
+        let declaredType = getDeclaredType (param.Type.ToString()) param.AttributeLists in
         let (convertedType, paramDependencies) = convertType declaredType env in
         (
             { name = paramName
@@ -181,10 +187,13 @@ let convertMethod (env: Env) (className: string) (declaration: MethodDeclaration
 
     // Remove the Task<> from the C# type because we will never get one from
     // the server, and just care about the type sent from the server
-    let declaredReturnType = unwrapTasks (declaration.ReturnType.ToString()) in
+    let declaredReturnType = getDeclaredType
+                                (unwrapTasks (declaration.ReturnType.ToString()))
+                                declaration.AttributeLists in
     let (convertedReturnType, returnDependency) = convertType declaredReturnType env in
 
-    let (transpileDirective, transpileDependency) = getTranpileDirective declaration className
+    let (transpileDirective, transpileDependency) =
+            getTranpileDirective declaration className declaredReturnType
 
     let dependencies = List.concat (returnDependency::transpileDependency::paramDependencies)
 
@@ -201,7 +210,7 @@ let collectMethods (env: Env) (declarations: seq<MethodDeclarationSyntax>) (clas
     let filteredDeclarations =
         (Seq.filter
             (fun (d : MethodDeclarationSyntax) -> 
-                match (getTranpileDirective d className) with (Ignored, _) -> false | _ -> true)
+                match (getTranpileDirective d className "") with (Ignored, _) -> false | _ -> true)
         declarations) in
      Seq.map (convertMethod env className) filteredDeclarations
 
@@ -245,7 +254,7 @@ let collectSubtypes (env: Env) (classDeclaration: ClassDeclarationSyntax) : (Sub
         in
         let dependencies = Seq.toList (Seq.map
                             (fun subtype ->
-                                let _, dep = tryGetModelFromEnv (subtype.subtype) env
+                                let _, dep, _ = tryGetModelFromEnv (subtype.subtype) env
                                 in dep)
             subtypes)
         in
@@ -297,34 +306,34 @@ let createAccessors (properties : seq<Property>) =
  * level. Since this assumes the object was serialized, we must
  * use the JSON name for each property.
  *)
-let createConstructor (properties: seq<Property>) (baseClassName: string option) =
+let createConstructor (env: Env) (properties: seq<Property>) (baseClassName: string option) =
     let superCall = match baseClassName with
                     | None -> ""
                     | Some _ -> "super(jsonData);\n"
     let propertySetters = Seq.map (fun (prop: Property) ->
                                         "if (jsonData." + prop.jsonName + ") {\n" +
                                         "this._" + prop.declaredName + " = " +
-                                            (fromJSONObject prop.declaredType ("jsonData." + prop.jsonName)) 
+                                            (fromJSONObject env prop.declaredType ("jsonData." + prop.jsonName))
                                          + ";\n}\n") properties
     in "constructor (jsonData) {\n" + superCall + (Seq.fold (+) "" propertySetters) + "}\n"
 
-let createInit (properties: seq<Property>) (baseClassName: string option) =
+let createInit (env: Env) (properties: seq<Property>) (baseClassName: string option) =
     let superCall = match baseClassName with
                             | None -> ""
                             | Some _ -> "super._init(jsonData);\n"
     let propertySetters = Seq.map (fun (prop: Property) ->
                                     "if (jsonData." + prop.jsonName + ") {\n" +
                                     "this._" + prop.declaredName + " = " +
-                                        (fromJSONObject prop.declaredType ("jsonData." + prop.jsonName)) 
+                                        (fromJSONObject env prop.declaredType ("jsonData." + prop.jsonName))
                                      + ";\n}\n") properties
     in "_init (jsonData) {\n" + superCall + (Seq.fold (+) "" propertySetters) + "}\n"
 
 
-let createToJSON (properties: seq<Property>) (baseClassName: string option) = 
+let createToJSON (env: Env) (properties: seq<Property>) (baseClassName: string option) =
     let allSets = Seq.map (fun (prop: Property) -> 
-                        prop.jsonName + ": " + (toJSONObject prop.declaredType ("this._" + prop.declaredName)))
+                        prop.jsonName + ": " + (toJSONObject env prop.declaredType ("this._" + prop.declaredName)))
                             properties in
-    let thisClassJson = 
+    let thisClassJson =
         if (Seq.isEmpty allSets) then "{}"
         else
             let firstSet = Seq.head allSets in
@@ -347,7 +356,7 @@ let createImports (genDirectory: string) (currentNS: string) (dependencies: Depe
     in List.fold (+) "" imports
 
 
-let createMethod (info: MethodInfo) : string =
+let createMethod (env: Env) (info: MethodInfo) : string =
     let asyncModifier = match info.transpileDirective with RPC _ -> "async " | _ -> ""
     let returnType = match info.transpileDirective with
                         | RPC _ -> "Promise<" + info.convertedReturnType + ">"
@@ -355,7 +364,7 @@ let createMethod (info: MethodInfo) : string =
     asyncModifier + info.name + "(" +
     (commaSeparatedList (Seq.map (fun (param: ParamInfo) -> param.name + ": " + param.convertedType) info.parameters))
     + ") : " + returnType + " {"
-    + (transpile info.transpileDirective)
+    + (transpile env info.transpileDirective)
     + "}\n"
 
 let createStaticDiscriminator (subtypes: SubtypeFieldInfo option)
@@ -390,11 +399,13 @@ let convertClass (env: Env) (genDirectory: string) (ns: string) (classDeclaratio
     let className = classDeclaration.Identifier.ToString()
     let baseClassInfo = match classDeclaration.BaseList with
                         | null -> None
-                        | _    -> Some (tryGetModelFromEnv (classDeclaration.BaseList.GetFirstToken().GetNextToken().ToString()) env)
+                        | _    -> Some (tryGetModelFromEnv
+                                            (classDeclaration.BaseList.GetFirstToken().GetNextToken().ToString())
+                                            env)
     let (baseClassName: string option, baseClassDependencies : Dependencies) =
                                             match baseClassInfo with
-                                               | None -> (None, []) 
-                                               | Some (name, dependencyList) -> ((Some name), dependencyList)
+                                               | None -> (None, [])
+                                               | Some (name, dependencyList, _) -> ((Some name), dependencyList)
 
     let propertySyntax = Seq.cast<PropertyDeclarationSyntax> (
                             Seq.filter (fun i -> TypeExtensions.IsInstanceOfType(typeof<PropertyDeclarationSyntax>, i))
@@ -424,12 +435,12 @@ let convertClass (env: Env) (genDirectory: string) (ns: string) (classDeclaratio
     let extendsClause = match baseClassName with
                         | None -> ""
                         | Some name -> " extends " + name
-    let constructor = createConstructor properties baseClassName in
+    let constructor = createConstructor env properties baseClassName in
     let fieldList = createFieldList properties in
     let accessors = createAccessors properties in
-    let methods = (createInit properties baseClassName) +
-                  (createToJSON properties baseClassName) +
-                  (Seq.fold (+) "" (Seq.map createMethod methodInfos)) +
+    let methods = (createInit env properties baseClassName) +
+                  (createToJSON env properties baseClassName) +
+                  (Seq.fold (+) "" (Seq.map (createMethod env) methodInfos)) +
                   (createStaticDiscriminator subtypeInfo className properties)
     in
     importList + PRELUDE +

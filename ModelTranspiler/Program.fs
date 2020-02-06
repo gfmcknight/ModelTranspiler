@@ -12,8 +12,8 @@ open WorkspaceTranspiler
 let Main(args: string []) =
     let (fromPath, toPath, projName, waitForInput) =
         match (args |> Array.toList) with
-            | (a::b::c::[]) -> (a, b, c, false)
-            | _ -> printfn "Must specify 3 args or none"; exit(1); ("","","", false)
+            | (a::b::[c]) -> (a, b, c, false)
+            | _ -> printfn "Must specify 3 args!"; exit(1); ("","","", false)
     in
 
     MSBuildLocator.RegisterDefaults() |> ignore;

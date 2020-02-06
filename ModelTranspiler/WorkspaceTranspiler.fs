@@ -7,7 +7,7 @@ open Microsoft.CodeAnalysis.CSharp
 open Microsoft.CodeAnalysis.CSharp.Syntax
 open Microsoft.CodeAnalysis.MSBuild
 
-open CodeTranspiler
+open EnumTranspiler
 open ClassTranspiler
 open System.IO
 open Util
@@ -15,6 +15,14 @@ open TypeUtils
 
 let hasTranspileAttribute (classNode : ClassDeclarationSyntax) =
     hasAttribute "Transpile" classNode.AttributeLists
+
+let transpileAndWriteEnumDocument (env: Env) (newPath : string) (enum: EnumInfo) =
+    let newFilePath = (newPath + (makeFilePath enum.ns) + "/" +  enum.name + ".ts")
+    let newDocumentText = convertEnum env enum.tree in
+
+    if newDocumentText.Length > 0
+        then File.WriteAllText(newFilePath, newDocumentText); newFilePath
+        else "(Not Written)"
 
 let transpileAndWriteDocument (env: Env) (originalPath : string) (newPath : string) (cls: ClassInfo) =
     let newFilePath = (newPath + (makeFilePath cls.ns) + "/" +  cls.name + ".ts")
@@ -40,12 +48,25 @@ let envEntriesFromNamespace (ns : NamespaceDeclarationSyntax) : ClassInfo seq =
             )
         (getChildrenOfType<ClassDeclarationSyntax> ns |> Seq.filter hasTranspileAttribute)
 
-let makeEnv (trees : seq<SyntaxTree>) : Env = 
+let enumEntriesFromNamespace (ns : NamespaceDeclarationSyntax) : EnumInfo seq =
+    let nsName = (ns.Name.ToString())
+    in
+    Seq.map (fun (enumDeclaration : EnumDeclarationSyntax) ->
+            { ns = nsName
+            ; name = (enumDeclaration.Identifier.ToString())
+            ; tree = enumDeclaration
+            }
+        )
+        (getChildrenOfType<EnumDeclarationSyntax> ns |> Seq.filter
+            (fun enumNode -> hasAttribute "Transpile" enumNode.AttributeLists))
+
+let makeEnv (trees : seq<SyntaxTree>) : Env =
     let nodes = Seq.map (fun (tree : SyntaxTree) -> tree.GetRoot()) trees
     let namespaces = Seq.collect getChildrenOfType<NamespaceDeclarationSyntax> nodes in
     let envEntries = Seq.collect envEntriesFromNamespace namespaces in
-    {
-        classes = Seq.toList envEntries
+    let enumEntries = Seq.collect enumEntriesFromNamespace namespaces in
+    { classes = Seq.toList envEntries
+    ; enums   = Seq.toList enumEntries
     }
 
 let makeInternalModule (genDirectory: string) (env: Env) =
@@ -67,21 +88,36 @@ let makeInternalModule (genDirectory: string) (env: Env) =
         | _  -> let (sourceList, nonSourceList) = sources classes classes in
                     (sortByDeps nonSourceList) @ sourceList
 
+    let classNames = (Seq.map
+                        (fun (cls: ClassInfo) -> cls.name)
+                        env.classes)
+
+    let enumNames = (Seq.map
+                        (fun (enm: EnumInfo) -> enm.name)
+                        env.enums)
+
+    let classImports = (Seq.map
+                            (fun (cls: ClassInfo) ->
+                                "import " + cls.name + " from './" + (makeFilePath cls.ns) +
+                                "/" + cls.name + "';\n"
+                            )
+                            (sortByDeps (Seq.toList env.classes)))
+
+    let enumImports = (Seq.map
+                            (fun (enm: EnumInfo) ->
+                                "import " + enm.name + " from './" + (makeFilePath enm.ns) +
+                                "/" + enm.name + "';\n"
+                            )
+                            env.enums)
+
     let internalModuleImports =
         "import RPCHandler from '../RPCHandler';\n" +
-        Seq.fold (+) ""
-            (Seq.map
-                (fun (cls: ClassInfo) ->
-                    "import " + cls.name + " from './" + (makeFilePath cls.ns) + "/" + cls.name + "';\n"
-                )
-            (sortByDeps (Seq.toList env.classes)))
+        Seq.fold (+) "" enumImports +
+        Seq.fold (+) "" classImports
+
     let exports =
         "export { " +
-            (commaSeparatedList
-                (Seq.map
-                    (fun (cls: ClassInfo) -> cls.name)
-                env.classes)
-            ) +
+            (commaSeparatedList (Seq.append enumNames classNames)) +
             ", RPCHandler" +
             " };\n"
     in File.WriteAllText(genDirectory + "internal.ts", internalModuleImports + exports); "import.js"
@@ -104,4 +140,7 @@ let transpileProject (path : string) (newpath : string) (projName : string) =
     let env = makeEnv trees
     in let y = ((makeDirectoriesFromEnv newpath env) |> Seq.toList) in
     let internalWrite = Seq.singleton (makeInternalModule newpath env) in
-    Seq.append internalWrite (Seq.map (transpileAndWriteDocument env path newpath) env.classes)
+    let enums = Seq.map (convertEnum env) (Seq.map (fun enumInfo -> enumInfo.tree) env.enums)
+    printfn "Enums %A" enums;
+    Seq.append internalWrite (Seq.map (transpileAndWriteDocument env path newpath) env.classes) |>
+    Seq.append (Seq.map (transpileAndWriteEnumDocument env newpath) env.enums)

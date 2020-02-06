@@ -2,6 +2,9 @@
 import Class1 from '../gen/TestSamples/Class1';
 import Class2 from '../gen/TestSamples/Class2';
 import AllValueTypesClass from '../gen/TestSamples/AllValueTypesClass';
+import TranspiledIntEnum from '../gen/TestSamples/TranspiledIntEnum';
+import TranspiledStringEnum from '../gen/TestSamples/TranspiledStringEnum';
+import EnumFieldsClass from '../gen/TestSamples/EnumFieldsClass';
 
 describe("Test Properties", () => {
     it("Test Set Property", () => {
@@ -38,5 +41,19 @@ describe("Test Properties", () => {
         assert.equal(obj.DateTimeProperty.getDate(), 26);
         assert.equal(obj.DateTimeProperty.getMonth(), 5);
         assert.equal(obj.DateTimeProperty.getFullYear(), 2019);
+    });
+
+    it("Test Enum Property", () => {
+        var obj = new EnumFieldsClass({"TSE":"TSEValueA","TIE":3});
+        assert.equal(obj.TIE, TranspiledIntEnum.TIEValueA);
+        assert.equal(obj.TSE, TranspiledStringEnum.TSEValueA);
+
+        obj = new EnumFieldsClass({"TSE":"TSEValueB","TIE":4});
+        assert.equal(obj.TIE, TranspiledIntEnum.TIEValueB);
+        assert.equal(obj.TSE, TranspiledStringEnum.TSEValueB);
+
+        obj = new EnumFieldsClass({"TSE":"TSEValueC","TIE":5});
+        assert.equal(obj.TIE, TranspiledIntEnum.TIEValueC);
+        assert.equal(obj.TSE, TranspiledStringEnum.TSEValueC);
     });
 });

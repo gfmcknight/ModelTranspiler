@@ -4,11 +4,8 @@ namespace TranspilerDirectives
 {
     public class TranspileDirectAttribute : Attribute
     {
-        private string v;
-
-        public TranspileDirectAttribute(string v)
+        public TranspileDirectAttribute(string code)
         {
-            this.v = v;
         }
     }
 }

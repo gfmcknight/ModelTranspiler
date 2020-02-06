@@ -7,9 +7,6 @@ import SubTypeB from '../gen/TestSamples/SubTypeB'
 import SubASubTypeA from '../gen/TestSamples/SubASubTypeA'
 import SubASubTypeB from '../gen/TestSamples/SubASubTypeB'
 
-
-
-
 describe("Inheritance Tests", () => {
     it("Supertype Property Exists", () => {
         var obj = new Class6({ MyOtherProp: 6.5, AdditionalProperty: 12 });

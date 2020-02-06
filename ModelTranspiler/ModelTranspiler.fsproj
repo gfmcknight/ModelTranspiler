@@ -8,6 +8,7 @@
   <ItemGroup>
     <Compile Include="Util.fs" />
     <Compile Include="TypeUtils.fs" />
+    <Compile Include="EnumTranspiler.fs" />
     <Compile Include="CodeTranspiler.fs" />
     <Compile Include="ClassTranspiler.fs" />
     <Compile Include="WorkspaceTranspiler.fs" />

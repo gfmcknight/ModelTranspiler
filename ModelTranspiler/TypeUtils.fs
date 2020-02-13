@@ -172,7 +172,7 @@ let rec toJSONObject (env: Env) (csharpType: string) (fieldAccessor: string) =
    | (Some "List", t)   -> fieldAccessor + ".map(t => " + (toJSONObject env t "t") + ")"
    | (Some "Dictionary", t) -> translateBetweenMapTypes t fieldAccessor (toJSONObject env)
    | (Some "Nullable", t) -> fieldAccessor + " !== undefined ? " +
-                              (fromJSONObject env t fieldAccessor) + " : undefined"
+                              (toJSONObject env t fieldAccessor) + " : undefined"
 
    | _ -> let (_, _, isClass) = tryGetModelFromEnv csharpType env
           in match isClass with

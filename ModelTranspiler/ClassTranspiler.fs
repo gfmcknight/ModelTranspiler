@@ -92,14 +92,12 @@ let convertAccessor (accessor: AccessorDeclarationSyntax) : (AccessType * Proper
  * walk the tree in order to discover.
  *)
 let convertProperty (env: Env) (declaration: PropertyDeclarationSyntax) : Property * Dependencies =
-    let declaredType = getDeclaredType (declaration.Type.ToString()) declaration.AttributeLists in
-    let nullable = (defaultNullable env declaredType) &&
+    let rawtype = getDeclaredType (declaration.Type.ToString()) declaration.AttributeLists in
+    let nullable = (defaultNullable env rawtype) &&
                    not (hasAttribute "JsonRequired" declaration.AttributeLists)
+    let declaredType = if nullable then ("Nullable<" + rawtype + ">") else rawtype
     let isOverride = declaration.Modifiers.ToString().Contains("override")
-    let (convertedType, dependencies) =
-            if nullable
-            then convertType ("Nullable<" + declaredType + ">") env
-            else convertType declaredType env in
+    let (convertedType, dependencies) = convertType declaredType env in
     let declaredName = declaration.Identifier.ToString() in
 
     // If the user uses a [JsonProperty] attribute, we need to
@@ -316,10 +314,9 @@ let createConstructor (env: Env) (properties: seq<Property>) (baseClassName: str
                     | None -> ""
                     | Some _ -> "super(jsonData);\n"
     let propertySetters = Seq.map (fun (prop: Property) ->
-                                        "if (jsonData." + prop.jsonName + ") {\n" +
                                         "this._" + prop.declaredName + " = " +
                                             (fromJSONObject env prop.declaredType ("jsonData." + prop.jsonName))
-                                         + ";\n}\n") properties
+                                         + ";\n") properties
     in "constructor (jsonData: any) {\n" + superCall + (Seq.fold (+) "" propertySetters) + "}\n"
 
 let createInit (env: Env) (properties: seq<Property>) (baseClassName: string option) =
@@ -327,11 +324,10 @@ let createInit (env: Env) (properties: seq<Property>) (baseClassName: string opt
                             | None -> ""
                             | Some _ -> "super._init(jsonData);\n"
     let propertySetters = Seq.map (fun (prop: Property) ->
-                                    "if (jsonData." + prop.jsonName + ") {\n" +
                                     "this._" + prop.declaredName + " = " +
                                         (fromJSONObject env prop.declaredType ("jsonData." + prop.jsonName))
-                                     + ";\n}\n") properties
-    in "_init (jsonData) {\n" + superCall + (Seq.fold (+) "" propertySetters) + "}\n"
+                                     + ";\n") properties
+    in "_init (jsonData: any) {\n" + superCall + (Seq.fold (+) "" propertySetters) + "}\n"
 
 
 let createToJSON (env: Env) (properties: seq<Property>) (baseClassName: string option) =

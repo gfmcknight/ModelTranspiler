@@ -93,8 +93,13 @@ let convertAccessor (accessor: AccessorDeclarationSyntax) : (AccessType * Proper
  *)
 let convertProperty (env: Env) (declaration: PropertyDeclarationSyntax) : Property * Dependencies =
     let declaredType = getDeclaredType (declaration.Type.ToString()) declaration.AttributeLists in
+    let nullable = (defaultNullable env declaredType) &&
+                   not (hasAttribute "JsonRequired" declaration.AttributeLists)
     let isOverride = declaration.Modifiers.ToString().Contains("override")
-    let (convertedType, dependencies) = convertType declaredType env in
+    let (convertedType, dependencies) =
+            if nullable
+            then convertType ("Nullable<" + declaredType + ">") env
+            else convertType declaredType env in
     let declaredName = declaration.Identifier.ToString() in
 
     // If the user uses a [JsonProperty] attribute, we need to
@@ -131,7 +136,7 @@ let convertProperty (env: Env) (declaration: PropertyDeclarationSyntax) : Proper
                            |> Seq.filter (fun (accessorType, _ : PropertyAccess) -> accessorType = Set)
                            |> Seq.map (fun (_, accessor) -> accessor)) 
     in
-    
+
     (
     { get = get
     ; set = set
@@ -315,7 +320,7 @@ let createConstructor (env: Env) (properties: seq<Property>) (baseClassName: str
                                         "this._" + prop.declaredName + " = " +
                                             (fromJSONObject env prop.declaredType ("jsonData." + prop.jsonName))
                                          + ";\n}\n") properties
-    in "constructor (jsonData) {\n" + superCall + (Seq.fold (+) "" propertySetters) + "}\n"
+    in "constructor (jsonData: any) {\n" + superCall + (Seq.fold (+) "" propertySetters) + "}\n"
 
 let createInit (env: Env) (properties: seq<Property>) (baseClassName: string option) =
     let superCall = match baseClassName with
@@ -369,7 +374,7 @@ let createMethod (env: Env) (info: MethodInfo) : string =
 
 let createStaticDiscriminator (subtypes: SubtypeFieldInfo option)
         (className: string) (properties: Property list) : string =
-    "static fromJSON(payload) : " + className + " {\n" +
+    "static fromJSON(payload: any) : " + className + " {\n" +
     (match subtypes with
         | None -> "return new " + className + "(payload);\n"
         | Some subtypes ->

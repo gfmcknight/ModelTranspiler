@@ -52,14 +52,17 @@ let tryGetModelFromEnv (typeName: string) (env: Env) : (string * Dependencies * 
 
 (* 
  * For a given "Type<T>", returns a tuple containing (Some "Type", "T")
- * If there is no generic 
+ * If there is no generic
  *)
 let clipGenericType (typeName : string) :  string option * string =
-  let leftAnglePosition = typeName.IndexOf("<") in
-  if leftAnglePosition = -1 then (None, typeName)
-  else 
-      (Some (typeName.Substring(0, leftAnglePosition)),
-       typeName.Substring(leftAnglePosition + 1, typeName.Length - leftAnglePosition - 2))
+   if typeName.EndsWith("?")
+   then (Some "Nullable", typeName.Substring(0, typeName.Length - 1))
+   else
+      let leftAnglePosition = typeName.IndexOf("<") in
+      if leftAnglePosition = -1 then (None, typeName)
+      else
+         (Some (typeName.Substring(0, leftAnglePosition)),
+          typeName.Substring(leftAnglePosition + 1, typeName.Length - leftAnglePosition - 2))
 
 (*
  * If we have an asynchronous method, then the return type will be wrapped in
@@ -86,7 +89,7 @@ let rec convertType (csharpType: string) (env: Env) : string * Dependencies =
    | (None, "bool")     -> ("boolean", [])
    | (None, "DateTime") -> ("Date", [])
    | (None, "Guid")     -> ("string", [])
-   | (None, "JObject")   -> ("object", [])
+   | (None, "JObject")  -> ("object", [])
 
    | (Some "List", t)   -> 
         let (innerConvert, innerDeps) = (convertType t env) in
@@ -98,6 +101,9 @@ let rec convertType (csharpType: string) (env: Env) : string * Dependencies =
         let (keyType, keyDeps) = (convertType (mapTypes.Item(0)) env) in
         let (valueType, valueDeps) = (convertType (mapTypes.Item(1)) env) in
         ("Record<" + keyType + ", " + valueType + ">", keyDeps @ valueDeps)
+
+   | (Some "Nullable", t) -> let (inner, deps) = convertType t env in
+                              (inner + " | undefined", deps)
 
    | _ -> let (name, deps, _) = tryGetModelFromEnv csharpType env in (name, deps)
 
@@ -133,11 +139,13 @@ let rec fromJSONObject (env: Env) (csharpType: string) (jsonObjectAccessor: stri
    | (None, "bool")     -> jsonObjectAccessor
    | (None, "Guid")     -> jsonObjectAccessor
    | (None, "string")   -> jsonObjectAccessor
-   | (None, "JObject")   -> jsonObjectAccessor
+   | (None, "JObject")  -> jsonObjectAccessor
    | (None, "void")     -> "undefined"
 
    | (Some "List", t)   -> jsonObjectAccessor + ".map(t => " + (fromJSONObject env t "t") + ")"
    | (Some "Dictionary", t) -> translateBetweenMapTypes t jsonObjectAccessor (fromJSONObject env)
+   | (Some "Nullable", t) -> jsonObjectAccessor + " !== undefined ? " +
+                              (fromJSONObject env t jsonObjectAccessor) + " : undefined"
 
    | _ -> let (_, _, isClass) = tryGetModelFromEnv csharpType env
           in match isClass with
@@ -155,7 +163,7 @@ let rec toJSONObject (env: Env) (csharpType: string) (fieldAccessor: string) =
    | (None, "DateTime") -> fieldAccessor + ".toJSON()"
    | (None, "double")   -> fieldAccessor
    | (None, "int")      -> fieldAccessor
-   | (None, "long")      -> fieldAccessor
+   | (None, "long")     -> fieldAccessor
    | (None, "bool")     -> fieldAccessor
    | (None, "Guid")     -> fieldAccessor
    | (None, "string")   -> fieldAccessor
@@ -163,8 +171,30 @@ let rec toJSONObject (env: Env) (csharpType: string) (fieldAccessor: string) =
 
    | (Some "List", t)   -> fieldAccessor + ".map(t => " + (toJSONObject env t "t") + ")"
    | (Some "Dictionary", t) -> translateBetweenMapTypes t fieldAccessor (toJSONObject env)
+   | (Some "Nullable", t) -> fieldAccessor + " !== undefined ? " +
+                              (fromJSONObject env t fieldAccessor) + " : undefined"
 
    | _ -> let (_, _, isClass) = tryGetModelFromEnv csharpType env
           in match isClass with
                | true -> fieldAccessor + ".toJSON()"
                | false -> fieldAccessor
+
+let defaultNullable (env: Env) (csharpType: string) : bool=
+   match (clipGenericType csharpType) with
+   | (None, "DateTime") -> true
+   | (None, "double")   -> false
+   | (None, "int")      -> false
+   | (None, "long")     -> false
+   | (None, "bool")     -> false
+   | (None, "Guid")     -> false
+   | (None, "string")   -> true
+   | (None, "JObject")  -> true
+
+   | (Some "List", t)   -> true
+   | (Some "Dictionary", t) -> true
+   | (Some "Nullable", t) -> false // already nullable
+
+   | _ -> let (_, _, isClass) = tryGetModelFromEnv csharpType env
+          in match isClass with
+               | true -> true
+               | false -> false

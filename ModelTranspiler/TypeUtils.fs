@@ -142,7 +142,7 @@ let rec fromJSONObject (env: Env) (csharpType: string) (jsonObjectAccessor: stri
    | (None, "JObject")  -> jsonObjectAccessor
    | (None, "void")     -> "undefined"
 
-   | (Some "List", t)   -> jsonObjectAccessor + ".map(t => " + (fromJSONObject env t "t") + ")"
+   | (Some "List", t)   -> jsonObjectAccessor + ".map((t: any) => " + (fromJSONObject env t "t") + ")"
    | (Some "Dictionary", t) -> translateBetweenMapTypes t jsonObjectAccessor (fromJSONObject env)
    | (Some "Nullable", t) -> jsonObjectAccessor + " !== undefined ? " +
                               (fromJSONObject env t jsonObjectAccessor) + " : undefined"

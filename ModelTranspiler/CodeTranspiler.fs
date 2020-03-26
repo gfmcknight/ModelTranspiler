@@ -21,8 +21,8 @@ let rpcString = "throw \"NotImplemented: RPC\";"
 
 let formatRPCTarget (env: Env) (className: string) (methodName: string) (returnType: string) =
     "\n" +
-    "let result : any = await RPCHandler.handleRPCRequest(this, Array.from(arguments), '"+
-    className + "', '" + methodName + "');\n" +
+    "let result : any = await RPCHandler.handleRPCRequest(this, Array.from(arguments), " +
+    "this.constructor.name, '" + methodName + "');\n" +
     "this._init(result.ThisObject);\n" +
     "return " + (fromJSONObject env returnType "result.ReturnValue") + ";" +
     "\n"

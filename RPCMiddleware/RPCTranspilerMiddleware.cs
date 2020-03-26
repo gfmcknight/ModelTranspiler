@@ -67,7 +67,7 @@ namespace RPCMiddleware
                 return;
             }
 
-            String requestBody = new StreamReader(context.Request.Body).ReadToEnd();
+            string requestBody = new StreamReader(context.Request.Body).ReadToEnd();
             RPCMessage message = JsonConvert.DeserializeObject<RPCMessage>(
                 requestBody
             );

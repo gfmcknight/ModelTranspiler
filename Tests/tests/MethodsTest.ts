@@ -2,6 +2,8 @@
 import MethodsClass from '../gen/TestSamples/MethodsClass';
 import EnumFieldsClass from '../gen/TestSamples/EnumFieldsClass';
 import { TranspiledIntEnum, TranspiledStringEnum } from '../gen/internal';
+import BaseMethodClass from '../gen/TestSamples/BaseMethodClass';
+import InheritedMethodClass from '../gen/TestSamples/InheritedMethodClass';
 
 describe("Methods Test", () => {
     it("Test Hardcoded Method", () => {
@@ -52,4 +54,11 @@ describe("Methods Test", () => {
 
 
     }).timeout(10000); // Additional time to make http request
+
+    it("Base RPC doesn't pollute type", async () => {
+        var obj = new InheritedMethodClass({Value: 0});
+        obj.Value = 3;
+        await obj.BaseMethod(4);
+        assert.equal(obj.Value, 4);
+    }).timeout(10000);
 });

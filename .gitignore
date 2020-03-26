@@ -275,3 +275,5 @@ __pycache__/
 *.pyc
 
 .ionide/
+.fake
+.ionide

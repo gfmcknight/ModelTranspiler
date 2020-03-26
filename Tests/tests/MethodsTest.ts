@@ -61,4 +61,11 @@ describe("Methods Test", () => {
         await obj.BaseMethod(4);
         assert.equal(obj.Value, 4);
     }).timeout(10000);
+
+    it("Can call base type methods", async () => {
+        var obj = new InheritedMethodClass({ Value: 0 });
+        obj.Value = 3;
+        await obj.NonVirtualBaseMethod(4);
+        assert.equal(obj.Value, 4);
+    }).timeout(10000);
 });

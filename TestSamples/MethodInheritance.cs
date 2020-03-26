@@ -15,6 +15,12 @@ namespace TestSamples
         {
             throw new NotImplementedException();
         }
+
+        [TranspileRPC]
+        public void NonVirtualBaseMethod(int newVal)
+        {
+            Value = newVal;
+        }
     }
 
     [Transpile]

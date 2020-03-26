@@ -7,12 +7,12 @@
     "name": ""
   },
   "devDependencies": {
-    "@types/node": "^8.0.14"
+    "@types/node": "^8.10.59"
   },
   "dependencies": {
     "@types/mocha": "^5.2.6",
-    "mocha": "^6.1.4",
-    "typescript": "^3.4.5"
+    "mocha": "^6.2.3",
+    "typescript": "^3.8.3"
   },
   "scripts": {
     "test": "mocha",

@@ -51,11 +51,9 @@ namespace SampleBackend
                 app.UseHsts();
             }
 
-
             app.UseMiddleware<RPCTranspilerMiddleware>();
 
             app.UseHttpsRedirection();
-            app.UseMvc();
         }
     }
 }

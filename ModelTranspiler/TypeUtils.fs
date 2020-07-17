@@ -132,7 +132,7 @@ let translateBetweenMapTypes (typePairExpression: string) (accessor: string)
  *)
 let rec fromJSONObject (env: Env) (csharpType: string) (jsonObjectAccessor: string) =
    match (clipGenericType csharpType) with
-   | (None, "DateTime") -> "new Date(" + jsonObjectAccessor + " + 'Z')"
+   | (None, "DateTime") -> "new Date(" + jsonObjectAccessor + ")"
    | (None, "double")   -> jsonObjectAccessor
    | (None, "int")      -> jsonObjectAccessor
    | (None, "long")     -> jsonObjectAccessor

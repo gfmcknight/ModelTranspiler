@@ -13,6 +13,11 @@ namespace RoundTripper
     {
         static void Main(string[] args)
         {
+            JsonConvert.DefaultSettings = () => new JsonSerializerSettings
+            {
+                DateTimeZoneHandling = DateTimeZoneHandling.Utc
+            };
+
             string assemblyName = typeof(Class1).Assembly.FullName;
 
             bool creatingFile = args.Length > 1 && args[1] == "create";

@@ -18,6 +18,7 @@ namespace TestSamples
         public long LongProperty { get; set; }
 
         public JObject JsonObjectProperty { get; set; }
+        public object ObjectProperty { get; set; }
 
         public static object DefaultValue()
         {
@@ -35,7 +36,8 @@ namespace TestSamples
                     { "IntVal", 5 },
                     { "StringVal", "Hello, world" },
                     { "ArrayVal", new JArray(3, 4, 5) }
-                }
+                },
+                ObjectProperty = "Test String"
             };
         }
     }

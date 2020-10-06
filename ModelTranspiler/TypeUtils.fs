@@ -90,6 +90,7 @@ let rec convertType (csharpType: string) (env: Env) : string * Dependencies =
    | (None, "DateTime") -> ("Date", [])
    | (None, "Guid")     -> ("string", [])
    | (None, "JObject")  -> ("object", [])
+   | (None, "object")   -> ("any", [])
 
    | (Some "List", t)   -> 
         let (innerConvert, innerDeps) = (convertType t env) in
@@ -140,6 +141,7 @@ let rec fromJSONObject (env: Env) (csharpType: string) (jsonObjectAccessor: stri
    | (None, "Guid")     -> jsonObjectAccessor
    | (None, "string")   -> jsonObjectAccessor
    | (None, "JObject")  -> jsonObjectAccessor
+   | (None, "object")   -> jsonObjectAccessor
    | (None, "void")     -> "undefined"
 
    | (Some "List", t)   -> jsonObjectAccessor + ".map((t: any) => " + (fromJSONObject env t "t") + ")"
@@ -168,6 +170,7 @@ let rec toJSONObject (env: Env) (csharpType: string) (fieldAccessor: string) =
    | (None, "Guid")     -> fieldAccessor
    | (None, "string")   -> fieldAccessor
    | (None, "JObject")  -> fieldAccessor
+   | (None, "object")   -> fieldAccessor
 
    | (Some "List", t)   -> fieldAccessor + ".map(t => " + (toJSONObject env t "t") + ")"
    | (Some "Dictionary", t) -> translateBetweenMapTypes t fieldAccessor (toJSONObject env)
@@ -189,6 +192,7 @@ let defaultNullable (env: Env) (csharpType: string) : bool=
    | (None, "Guid")     -> false
    | (None, "string")   -> true
    | (None, "JObject")  -> true
+   | (None, "object")   -> true
 
    | (Some "List", t)   -> true
    | (Some "Dictionary", t) -> true

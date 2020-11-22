@@ -17,7 +17,7 @@ dotnet build
 dotnet run ".." create
 Set-Location ..
 
-dotnet .\ModelTranspiler\bin\Debug\netcoreapp3.1\ModelTranspiler.dll "TestSamples/" "Tests/gen/" "TestSamples.csproj"
+dotnet .\ModelTranspiler\bin\Debug\net5.0\ModelTranspiler.dll "TestSamples/" "Tests/gen/" "TestSamples.csproj"
 
 Set-Location SampleBackend
 dotnet build
